@@ -1,16 +1,12 @@
 package app
 
-import zio.logging.{consoleJson, LogAnnotation, LogFormat}
-import zio.{ExitCode, Runtime, Scope, ZIO, ZIOAppDefault, _}
-
-import java.util.UUID
+import zio._
+import zio.logging.backend.SLF4J
 
 object Main extends ZIOAppDefault {
 
   private val logger =
-    Runtime.removeDefaultLoggers >>> consoleJson(
-      LogFormat.default + LogFormat.annotation(LogAnnotation.TraceId)
-    )
+    Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   def app: ZIO[Any, Nothing, Unit] = for {
     _ <- ZIO.logInfo("App starting")
