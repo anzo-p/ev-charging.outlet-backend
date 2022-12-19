@@ -1,8 +1,8 @@
 package consumer.backend
 
-import nl.vroste.zio.kinesis.client.serde.Serde
 import nl.vroste.zio.kinesis.client.zionative.Consumer
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
+import shared.types.chargingEvent.ProtobufConversions
 import zio.Console.printLine
 import zio._
 import zio.aws.core.config.AwsConfig
@@ -17,7 +17,7 @@ object Main extends ZIOAppDefault {
       .shardedStream(
         streamName       = "ev-outlet-app.charger-stream",
         applicationName  = "my-application",
-        deserializer     = Serde.asciiString,
+        deserializer     = ProtobufConversions.byteArray,
         workerIdentifier = "worker1"
       )
       .flatMapPar(Int.MaxValue) {
@@ -90,11 +90,4 @@ sbt run -jvm-debug 9999
   - process billing
   same as when Consumer client initiates
   except that the ack start / stop is missing
- */
-/*
-  1 charger with routes - without model, dto, validation
-  2 plus writer without protobuf
-  3 plus consumer main, reader
-  4 plus protobuf, models, dto
-  then add validation but dont commit yet
  */
