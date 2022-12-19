@@ -9,12 +9,13 @@ object Dependencies {
   val zioLogging   = "2.1.5"
 
   val libraryDependencies = Seq(
-    "dev.zio"        %% "zio"               % zio,
-    "dev.zio"        %% "zio-json"          % zioJson,
-    "nl.vroste"      %% "zio-kinesis"       % zioKinesis,
-    "dev.zio"        %% "zio-logging"       % zioLogging,
-    "dev.zio"        %% "zio-logging-slf4j" % zioLogging,
-    "io.d11"         %% "zhttp"             % zioHttp,
-    "ch.qos.logback" % "logback-classic"    % chQosLogBack
+    "dev.zio"              %% "zio"               % zio,
+    "dev.zio"              %% "zio-json"          % zioJson,
+    "nl.vroste"            %% "zio-kinesis"       % zioKinesis,
+    "dev.zio"              %% "zio-logging"       % zioLogging,
+    "dev.zio"              %% "zio-logging-slf4j" % zioLogging,
+    "io.d11"               %% "zhttp"             % zioHttp,
+    "ch.qos.logback"       % "logback-classic"    % chQosLogBack,
+    "com.thesamet.scalapb" %% "scalapb-runtime"   % scalapb.compiler.Version.scalapbVersion % "protobuf"
   )
 }

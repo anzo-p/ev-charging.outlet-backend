@@ -1,10 +1,12 @@
 package charger.backend.http
 
 import charger.backend.events.StreamWriter
+import charger.backend.http.dto.CreateChargingEvent
 import shared.http.BaseRoutes
 import zhttp.http._
 import zhttp.service.Server
 import zio._
+import zio.json._
 
 final case class ChargerRoutes(streamWriter: StreamWriter) extends BaseRoutes {
 
@@ -19,17 +21,19 @@ final case class ChargerRoutes(streamWriter: StreamWriter) extends BaseRoutes {
       case req @ Method.POST -> !! / "chargers" / _ / "start" =>
         (for {
           body <- req.body.asString.mapError(serverError)
+          dto  <- body.fromJson[CreateChargingEvent].orFail(invalidPayload)
+          event = dto.toEvent
           // resolve charger by id
           // resolve user ok - implies exists, validated, and working payment method
           // create <- TodoTaskDto.validate(dto).orFail(invalidPayload) - payload validation must be here
           // service.add(create.toParams).absolve.mapError(serverError) - we could squeeze all dynamodb reads and writes into a single service call
-          _ <- streamWriter.put(body).mapError(serverError)
+          _ <- streamWriter.put(event).mapError(serverError)
         } yield {
           Response(
             Status.Created,
             defaultHeaders,
             Body.fromString {
-              body
+              CreateChargingEvent.fromEvent(event).toJson
             }
           )
         }).respond
