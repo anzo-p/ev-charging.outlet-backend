@@ -11,8 +11,7 @@ object TimeExtensions {
 
   implicit class ProtobufTimestampOps(val ts: com.google.protobuf.timestamp.Timestamp) extends AnyVal {
 
-    def toJavaOffsetDateTime: java.time.OffsetDateTime = {
-      println(s"from protobuf $ts")
+    def toJavaOffsetDateTime: java.time.OffsetDateTime =
       java
         .time
         .OffsetDateTime
@@ -20,6 +19,5 @@ object TimeExtensions {
           java.time.Instant.ofEpochMilli(ts.seconds * 1000 + ts.nanos / 1000000),
           java.time.ZoneOffset.UTC
         )
-    }
   }
 }

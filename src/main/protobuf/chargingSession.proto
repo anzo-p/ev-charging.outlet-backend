@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package com.anzop.evCharger;
+
+import "google/protobuf/timestamp.proto";
+
+message ChargingConsumerProto {
+  string userId = 1;
+  string userToken = 2;
+}
+
+message ChargingOutletProto {
+  string outletId = 1;
+  string deviceCode = 2;
+  string status = 3;
+}
+
+message ChargingSessionProto {
+  string sessionId = 1;
+  ChargingConsumerProto consumer = 2;
+  ChargingOutletProto outlet = 3;
+  string purchaseChannel = 4;
+  google.protobuf.Timestamp startTime = 5;
+  google.protobuf.Timestamp endTime = 6;
+}

@@ -1,9 +1,9 @@
 package consumer.backend
 
-import nl.vroste.zio.kinesis.client.zionative.Consumer
+import consumer.backend.events.{ChargingSessionProducer, OutletEventConsumer}
+import consumer.backend.http.ConsumerRoutes
+import nl.vroste.zio.kinesis.client.zionative.LeaseRepository
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
-import shared.types.chargingEvent.ProtobufConversions
-import zio.Console.printLine
 import zio._
 import zio.aws.core.config.AwsConfig
 import zio.aws.dynamodb.DynamoDb
@@ -12,60 +12,44 @@ import zio.aws.netty.NettyHttpClient
 
 object Main extends ZIOAppDefault {
 
-  override def run: ZIO[ZIOAppArgs with Scope, Any, Any] =
-    Consumer
-      .shardedStream(
-        streamName       = "ev-outlet-app.charger-stream",
-        applicationName  = "my-application",
-        deserializer     = ProtobufConversions.byteArray,
-        workerIdentifier = "worker1"
-      )
-      .flatMapPar(Int.MaxValue) {
-        case (shardId, shardStream, checkpointer) =>
-          shardStream
-            .tap(record => printLine(s"Processing record $record on shard $shardId"))
-            .tap(checkpointer.stage(_))
-            .viaFunction(checkpointer.checkpointBatched[Any](nr = 1000, interval = 5.minutes))
-      }
-      .tap(_ => ZIO.succeed(Thread.sleep(1111))) // slow down for now, later find out why required
-      .runDrain
+  val program: ZIO[Kinesis with LeaseRepository with Any with ConsumerRoutes, Throwable, Unit] =
+    ZIO.serviceWithZIO[ConsumerRoutes](_.start) *> OutletEventConsumer.read
+
+  override def run: URIO[Any, ExitCode] =
+    program
       .provide(
-        NettyHttpClient.default,
         AwsConfig.default,
-        DynamoDbLeaseRepository.live,
+        ChargingSessionProducer.make,
+        ChargingSessionProducer.live,
+        ConsumerRoutes.live,
         DynamoDb.live,
-        Kinesis.live
+        DynamoDbLeaseRepository.live,
+        Kinesis.live,
+        NettyHttpClient.default,
+        Scope.default
       )
       .exitCode
 }
 
 /*
-sbt run -jvm-debug 9999
+  sbt run -jvm-debug 9999
 
 
-  serve rest api
-  - post - consumer client requests begins charging { consumer data }
-    - send to kinesis: consumer requests start charging from device id
 
-  - post - consumer client requests stops charging { session id or consumer data }
-    - send to kinesis: consumer requests stop charging at device id
+  now that we have the protobufs and two kinesis streams
+  - should we want to squeeze that into one stream?
+    - can we decidee this later?
+    - the protobufs and all data classes would become more abstract
 
-  - get consumer clients charging history
+  - then consumer store things in dynamodb
+  - then consumer emit to kinesis
+  - then charger reads from kinesis, stores into dynamodb, and logs that it would push this to device
+  - then charger emits to kinesis
+  - then consumer reads that
+  - then consumer updates things in kinesis
+  - then client that polls respective endpoint in consumer can see that the charging event eventually begun
 
-  read kinesis
-  - charger backend has issued to start charging
-    - push to device
 
-  - charger backend has issued a stop charging
-    - push to device- push to device
-
-  persist in dynamodb
-  - consumer
-    - active events
-    - history, paginated
-    - tally of charging and expenses
- */
-/*
   Consumer client initiates
 
   - initiate charging
