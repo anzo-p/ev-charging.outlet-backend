@@ -8,10 +8,12 @@ import zio.aws.kinesis.Kinesis
 
 object ChargingSessionConsumer {
 
+  val streamResource = "ev-outlet-app.charging-session.stream"
+
   val read: ZIO[Kinesis with LeaseRepository with Any, Throwable, Unit] =
     Consumer
       .shardedStream(
-        streamName       = "ev-outlet-app.charging-session",
+        streamName       = streamResource,
         applicationName  = "my-application",
         deserializer     = ChargingSessionSerDes.byteArray,
         workerIdentifier = "worker1"

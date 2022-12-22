@@ -1,4 +1,4 @@
-package consumer.backend.events
+package customer.backend.events
 
 import nl.vroste.zio.kinesis.client.{Producer, ProducerRecord}
 import shared.types.{ChargingSession, ChargingSessionSerDes}
@@ -28,9 +28,11 @@ object ChargingSessionProducer {
   //val env: ZLayer[Any, Throwable, Kinesis with CloudWatch with DynamoDb with Scope] =
   //  client.defaultAwsLayer ++ Scope.default
 
+  val streamResource = "ev-outlet-app.charging-session.stream"
+
   val make: ZLayer[Scope with Any with Kinesis, Throwable, Producer[ChargingSession]] = {
     ZLayer.fromZIO {
-      Producer.make("ev-outlet-app.charging-session", ChargingSessionSerDes.byteArray)
+      Producer.make("ev-outlet-app.charging-session.stream", ChargingSessionSerDes.byteArray)
     }
   }
 

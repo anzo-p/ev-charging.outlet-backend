@@ -1,4 +1,4 @@
-package consumer.backend.events
+package customer.backend.events
 
 import nl.vroste.zio.kinesis.client.zionative.{Consumer, LeaseRepository}
 import shared.types.OutletEventSerDes
@@ -8,10 +8,12 @@ import zio.aws.kinesis.Kinesis
 
 object OutletEventConsumer {
 
+  val streamResource = "ev-outlet-app.outlet-events.stream"
+
   val read: ZIO[Kinesis with LeaseRepository with Any, Throwable, Unit] =
     Consumer
       .shardedStream(
-        streamName       = "ev-outlet-app.outlet-events",
+        streamName       = streamResource,
         applicationName  = "my-application",
         deserializer     = OutletEventSerDes.byteArray,
         workerIdentifier = "worker1"
