@@ -1,13 +1,12 @@
 package customer.backend.http.dto
 
-import shared.types.TimeExtensions._
 import shared.types.enums.{OutletStatus, PurchaseChannel}
 import shared.types.{ChargingCustomer, ChargingOutlet, ChargingSession}
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.util.UUID
 
-final case class CreateChargingCustomer(customerId: UUID, rfidTag: Option[String])
+final case class CreateChargingCustomer(rfidTag: Option[String])
 
 object CreateChargingCustomer {
   implicit val codec: JsonCodec[CreateChargingCustomer] = DeriveJsonCodec.gen[CreateChargingCustomer]
@@ -21,6 +20,7 @@ object CreateChargingOutlet {
 
 final case class CreateChargingSession(
     sessionId: UUID,
+    customerId: UUID,
     customer: CreateChargingCustomer,
     outlet: CreateChargingOutlet,
     purchaseChannel: String,
@@ -30,12 +30,13 @@ final case class CreateChargingSession(
 
   def toEvent: ChargingSession =
     ChargingSession(
-      sessionId       = this.sessionId,
-      customer        = ChargingCustomer(customer.customerId, customer.rfidTag),
-      outlet          = ChargingOutlet(outlet.outletId, outlet.deviceCode, OutletStatus.withName(outlet.status)),
-      purchaseChannel = PurchaseChannel.withName(purchaseChannel),
-      startTime       = this.startTime.toProtobufTs,
-      endTime         = this.endTime.map(_.toProtobufTs)
+      sessionId,
+      customerId,
+      ChargingCustomer(customer.rfidTag),
+      ChargingOutlet(outlet.outletId, outlet.deviceCode, OutletStatus.withName(outlet.status)),
+      PurchaseChannel.withName(purchaseChannel),
+      startTime,
+      endTime
     )
 }
 
@@ -44,11 +45,12 @@ object CreateChargingSession {
 
   def fromEvent(event: ChargingSession): CreateChargingSession =
     CreateChargingSession(
-      sessionId       = event.sessionId,
-      customer        = CreateChargingCustomer(event.customer.customerId, event.customer.rfidTag),
-      outlet          = CreateChargingOutlet(event.outlet.outletId, event.outlet.deviceCode, event.outlet.status.entryName),
-      purchaseChannel = event.purchaseChannel.entryName,
-      startTime       = event.startTime.toJavaOffsetDateTime,
-      endTime         = event.endTime.map(_.toJavaOffsetDateTime)
+      event.sessionId,
+      event.customerId,
+      CreateChargingCustomer(event.customer.rfidTag),
+      CreateChargingOutlet(event.outlet.outletId, event.outlet.deviceCode, event.outlet.status.entryName),
+      event.purchaseChannel.entryName,
+      event.startTime,
+      event.endTime
     )
 }

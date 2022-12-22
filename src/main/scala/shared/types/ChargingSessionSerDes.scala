@@ -3,6 +3,7 @@ package shared.types
 import com.anzop.evCharger.chargingSession._
 import nl.vroste.zio.kinesis.client.serde.Serde
 import nl.vroste.zio.kinesis.client.serde.Serde.bytes
+import shared.types.TimeExtensions._
 import shared.types.enums.{OutletStatus, PurchaseChannel}
 import zio.Chunk
 
@@ -13,8 +14,7 @@ object ChargingSessionSerDes {
 
   def toProtobuf(customer: ChargingCustomer): ChargingCustomerProto =
     ChargingCustomerProto(
-      customerId = customer.customerId.toString,
-      rfidTag    = customer.rfidTag.getOrElse("")
+      rfidTag = customer.rfidTag.getOrElse("")
     )
 
   def toProtobuf(device: ChargingOutlet): ChargingOutletProto =
@@ -27,17 +27,17 @@ object ChargingSessionSerDes {
   def toProtobuf(session: ChargingSession): ChargingSessionProto =
     ChargingSessionProto(
       sessionId       = session.sessionId.toString,
+      customerId      = session.customerId.toString,
       customer        = Some(toProtobuf(session.customer)),
       outlet          = Some(toProtobuf(session.outlet)),
       purchaseChannel = session.purchaseChannel.entryName,
-      startTime       = Some(session.startTime),
-      endTime         = session.endTime
+      startTime       = Some(session.startTime.toProtobufTs),
+      endTime         = session.endTime.map(_.toProtobufTs)
     )
 
   def fromProtobuf(proto: ChargingCustomerProto): ChargingCustomer =
     ChargingCustomer(
-      customerId = UUID.fromString(proto.customerId),
-      rfidTag    = if (proto.rfidTag.isEmpty) None else Some(proto.rfidTag)
+      rfidTag = if (proto.rfidTag.isEmpty) None else Some(proto.rfidTag)
     )
 
   def fromProtobuf(proto: ChargingOutletProto): ChargingOutlet =
@@ -51,11 +51,12 @@ object ChargingSessionSerDes {
     Try {
       ChargingSession(
         sessionId       = UUID.fromString(proto.sessionId),
+        customerId      = UUID.fromString(proto.customerId),
         customer        = fromProtobuf(proto.customer.get),
         outlet          = fromProtobuf(proto.outlet.get),
         purchaseChannel = PurchaseChannel.withName(proto.purchaseChannel),
-        startTime       = proto.startTime.get,
-        endTime         = proto.endTime
+        startTime       = proto.startTime.get.toJavaOffsetDateTime,
+        endTime         = proto.endTime.map(_.toJavaOffsetDateTime)
       )
     } match {
       case scala.util.Success(value) => value

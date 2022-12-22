@@ -2,7 +2,7 @@ package customer.backend
 
 import customer.backend.events.{ChargingSessionProducer, OutletEventConsumer}
 import customer.backend.http.{ChargingRequestRoutes, CustomerRoutes, CustomerServer}
-import customer.backend.service.DynamoDBCustomerService
+import customer.backend.service.{DynamoDBChargingService, DynamoDBCustomerService}
 import nl.vroste.zio.kinesis.client.zionative.LeaseRepository
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
 import zio._
@@ -27,6 +27,7 @@ object Main extends ZIOAppDefault {
         CustomerRoutes.live,
         CustomerServer.live,
         DynamoDb.live,
+        DynamoDBChargingService.live,
         DynamoDBCustomerService.live,
         DynamoDBExecutor.live,
         DynamoDbLeaseRepository.live,
@@ -40,13 +41,13 @@ object Main extends ZIOAppDefault {
 /*
   sbt run -jvm-debug 9999
 
-  - then consumer store things in dynamodb
-  - then consumer emit to kinesis
-  - then charger reads from kinesis, stores into dynamodb, and logs that it would push this to device
-  - then charger emits to kinesis
-  - then consumer reads that
-  - then consumer updates things in kinesis
-  - then client that polls respective endpoint in consumer can see that the charging event eventually begun
+  Customer requests charging session
+  - charger stores into dynamodb
+  - charger pushes to device - just log for now
+  - charger emits what ??? to kinesis
+  - consumer reads that
+  - consumer updates things in dynamodb
+  - client polls respective endpoint ??? where consumer can see that the charging event eventually begun
 
 
   Consumer client initiates

@@ -15,9 +15,9 @@ final case class CreateCustomer(
 
   def toParams: CustomerParams =
     CustomerParams(
-      address       = this.address,
-      email         = this.email,
-      paymentMethod = this.paymentMethod
+      address,
+      email,
+      paymentMethod
     )
 }
 
@@ -26,10 +26,10 @@ object CreateCustomer {
 
   def fromModel(model: Customer): CreateCustomer =
     CreateCustomer(
-      customerId    = Some(model.customerId),
-      rfidTag       = Some(model.rfidTag),
-      address       = model.address,
-      email         = model.email,
-      paymentMethod = model.paymentMethod
+      Some(model.customerId),
+      Some(model.rfidTag),
+      model.address,
+      model.email,
+      model.paymentMethod
     )
 }

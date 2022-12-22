@@ -2,12 +2,14 @@ package customer.backend.http
 
 import customer.backend.events.StreamWriter
 import customer.backend.http.dto.CreateChargingSession
+import customer.backend.service.{ChargingService, CustomerService}
 import shared.http.BaseRoutes
 import zhttp.http._
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
 
-final case class ChargingRequestRoutes(streamWriter: StreamWriter) extends BaseRoutes {
+final case class ChargingRequestRoutes(streamWriter: StreamWriter, customerService: CustomerService, chargingService: ChargingService)
+    extends BaseRoutes {
 
   val routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
@@ -15,14 +17,13 @@ final case class ChargingRequestRoutes(streamWriter: StreamWriter) extends BaseR
         (for {
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateChargingSession].orFail(invalidPayload)
+          // create <- CreateChargingSession.validate(dto).orFail(invalidPayload) - nothing to validate yet
           event = dto.toEvent
-          // resolve charger by id
-          // resolve user ok - implies exists, validated, and working payment method
-          // create <- TodoTaskDto.validate(dto).orFail(invalidPayload) - payload validation must be here
-          // service.add(create.toParams).absolve.mapError(serverError) - we could squeeze all dynamodb reads and writes into a single service call
-          _ <- streamWriter.put(event).mapError(serverError)
-          // response created
-          // mobile app will then query other endpoints for more data
+          _       <- customerService.getById(dto.customerId).orElseFail(invalidPayload("this customer doesn't exist"))
+          already <- chargingService.hasActiveSession(dto.customerId).mapError(serverError)
+          _       <- ZIO.fromEither(Either.cond(!already, (), badRequest("customer already has active session")))
+          _       <- chargingService.add(event).mapError(serverError)
+          _       <- streamWriter.put(event).mapError(serverError)
         } yield {
           Response(
             Status.Created,
@@ -40,7 +41,7 @@ final case class ChargingRequestRoutes(streamWriter: StreamWriter) extends BaseR
 
 object ChargingRequestRoutes {
 
-  val live: ZLayer[StreamWriter, Nothing, ChargingRequestRoutes] =
+  val live: ZLayer[StreamWriter with CustomerService with ChargingService, Nothing, ChargingRequestRoutes] =
     ZLayer.fromFunction(ChargingRequestRoutes.apply _)
 }
 /*

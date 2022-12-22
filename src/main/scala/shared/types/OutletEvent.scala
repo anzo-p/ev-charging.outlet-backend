@@ -20,5 +20,10 @@ object OutletEvent {
       timestamp: Timestamp,
       status: String
     ): OutletEvent =
-    OutletEvent(outletId, userToken, timestamp, OutletStatus.withName(status))
+    OutletEvent(
+      outletId,
+      userToken,
+      timestamp,
+      OutletStatus.withName(status)
+    )
 }
