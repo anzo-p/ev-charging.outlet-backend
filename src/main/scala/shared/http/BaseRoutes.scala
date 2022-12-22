@@ -1,5 +1,6 @@
 package shared.http
 
+import shared.validation.ValidationError
 import zhttp.http._
 import zio._
 
@@ -40,6 +41,9 @@ trait BaseRoutes {
     //println(reason)
     Response(Status.UnprocessableEntity, Headers.empty, Body.fromString(reason))
   }
+
+  def unProcessableEntity(reason: NonEmptyChunk[ValidationError]): Response =
+    unProcessableEntity(reason.toList.map(_.message).mkString(", "))
 
   def invalidPayload(reason: String): Response =
     badRequest("invalid payload " + reason)
