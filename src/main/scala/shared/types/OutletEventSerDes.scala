@@ -13,7 +13,7 @@ object OutletEventSerDes {
   def toProtobuf(outlet: OutletEvent): OutletEventProto =
     OutletEventProto(
       outletId  = outlet.outletId.toString,
-      userToken = outlet.userToken,
+      rfidTag   = outlet.userToken,
       eventTime = Some(outlet.eventTime),
       status    = outlet.status.entryName
     )
@@ -21,7 +21,7 @@ object OutletEventSerDes {
   def fromProtobuf(proto: OutletEventProto): OutletEvent = {
     OutletEvent(
       outletId  = UUID.fromString(proto.outletId),
-      userToken = proto.userToken,
+      userToken = proto.rfidTag,
       eventTime = proto.eventTime.get,
       status    = OutletStatus.withName(proto.status)
     )

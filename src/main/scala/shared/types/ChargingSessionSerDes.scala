@@ -11,10 +11,10 @@ import scala.util.Try
 
 object ChargingSessionSerDes {
 
-  def toProtobuf(consumer: ChargingConsumer): ChargingConsumerProto =
-    ChargingConsumerProto(
-      userId    = consumer.userId.toString,
-      userToken = consumer.userToken.getOrElse("")
+  def toProtobuf(customer: ChargingCustomer): ChargingCustomerProto =
+    ChargingCustomerProto(
+      customerId = customer.customerId.toString,
+      rfidTag    = customer.rfidTag.getOrElse("")
     )
 
   def toProtobuf(device: ChargingOutlet): ChargingOutletProto =
@@ -27,17 +27,17 @@ object ChargingSessionSerDes {
   def toProtobuf(session: ChargingSession): ChargingSessionProto =
     ChargingSessionProto(
       sessionId       = session.sessionId.toString,
-      consumer        = Some(toProtobuf(session.consumer)),
+      customer        = Some(toProtobuf(session.customer)),
       outlet          = Some(toProtobuf(session.outlet)),
       purchaseChannel = session.purchaseChannel.entryName,
       startTime       = Some(session.startTime),
       endTime         = session.endTime
     )
 
-  def fromProtobuf(proto: ChargingConsumerProto): ChargingConsumer =
-    ChargingConsumer(
-      userId    = UUID.fromString(proto.userId),
-      userToken = if (proto.userToken.isEmpty) None else Some(proto.userToken)
+  def fromProtobuf(proto: ChargingCustomerProto): ChargingCustomer =
+    ChargingCustomer(
+      customerId = UUID.fromString(proto.customerId),
+      rfidTag    = if (proto.rfidTag.isEmpty) None else Some(proto.rfidTag)
     )
 
   def fromProtobuf(proto: ChargingOutletProto): ChargingOutlet =
@@ -51,7 +51,7 @@ object ChargingSessionSerDes {
     Try {
       ChargingSession(
         sessionId       = UUID.fromString(proto.sessionId),
-        consumer        = fromProtobuf(proto.consumer.get),
+        customer        = fromProtobuf(proto.customer.get),
         outlet          = fromProtobuf(proto.outlet.get),
         purchaseChannel = PurchaseChannel.withName(proto.purchaseChannel),
         startTime       = proto.startTime.get,

@@ -4,9 +4,9 @@ package com.anzop.evCharger;
 
 import "google/protobuf/timestamp.proto";
 
-message ChargingConsumerProto {
-  string userId = 1;
-  string userToken = 2;
+message ChargingCustomerProto {
+  string customerId = 1;
+  string rfidTag = 2;
 }
 
 message ChargingOutletProto {
@@ -17,7 +17,7 @@ message ChargingOutletProto {
 
 message ChargingSessionProto {
   string sessionId = 1;
-  ChargingConsumerProto consumer = 2;
+  ChargingCustomerProto customer = 2;
   ChargingOutletProto outlet = 3;
   string purchaseChannel = 4;
   google.protobuf.Timestamp startTime = 5;
