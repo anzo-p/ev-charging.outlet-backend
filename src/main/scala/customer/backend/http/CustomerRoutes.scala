@@ -1,0 +1,51 @@
+package customer.backend.http
+
+import customer.backend.http.dto.CreateCustomer
+import customer.backend.service.CustomerService
+import shared.http.BaseRoutes
+import shared.validation.InputValidation.validateUUID
+import zhttp.http._
+import zio.ZLayer
+import zio.json._
+
+final case class CustomerRoutes(service: CustomerService) extends BaseRoutes {
+
+  val routes: Http[Any, Throwable, Request, Response] =
+    Http.collectZIO[Request] {
+      case Method.GET -> !! / "customers" / customer =>
+        (for {
+          customerId <- validateUUID(customer, "customer").toEither.orFail(unProcessableEntity)
+          him        <- service.getById(customerId).mapError(serverError)
+        } yield {
+          Response(
+            Status.Ok,
+            defaultHeaders,
+            Body.fromString {
+              CreateCustomer.fromModel(him).toJson
+            }
+          )
+        }).respond
+
+      case req @ Method.POST -> !! / "customers" =>
+        (for {
+          body <- req.body.asString.mapError(serverError)
+          dto  <- body.fromJson[CreateCustomer].orFail(invalidPayload)
+          //create <- CreateCustomer.validate(dto).orFail(invalidPayload)
+          him <- service.register(dto.toParams).mapError(serverError)
+        } yield {
+          Response(
+            Status.Created,
+            defaultHeaders,
+            Body.fromString {
+              CreateCustomer.fromModel(him).toJson
+            }
+          )
+        }).respond
+    }
+}
+
+object CustomerRoutes {
+
+  val live: ZLayer[CustomerService, Nothing, CustomerRoutes] =
+    ZLayer.fromFunction(CustomerRoutes.apply _)
+}

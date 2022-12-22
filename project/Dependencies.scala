@@ -3,6 +3,7 @@ import sbt._
 object Dependencies {
   val chQosLogBack = "1.4.5"
   val zio          = "2.0.5"
+  val zioDynamoDB  = "0.2.0-RC2"
   val zioHttp      = "2.0.0-RC11"
   val zioJson      = "0.3.0"
   val zioKinesis   = "0.30.1"
@@ -11,6 +12,7 @@ object Dependencies {
 
   val libraryDependencies = Seq(
     "dev.zio"              %% "zio"               % zio,
+    "dev.zio"              %% "zio-dynamodb"      % zioDynamoDB,
     "io.d11"               %% "zhttp"             % zioHttp,
     "dev.zio"              %% "zio-json"          % zioJson,
     "nl.vroste"            %% "zio-kinesis"       % zioKinesis,

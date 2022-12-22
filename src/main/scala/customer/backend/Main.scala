@@ -1,7 +1,8 @@
-package consumer.backend
+package customer.backend
 
-import consumer.backend.events.{ChargingSessionProducer, OutletEventConsumer}
-import consumer.backend.http.ConsumerRoutes
+import customer.backend.events.{ChargingSessionProducer, OutletEventConsumer}
+import customer.backend.http.{ChargingRequestRoutes, CustomerRoutes, CustomerServer}
+import customer.backend.service.DynamoDBCustomerService
 import nl.vroste.zio.kinesis.client.zionative.LeaseRepository
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
 import zio._
@@ -9,11 +10,12 @@ import zio.aws.core.config.AwsConfig
 import zio.aws.dynamodb.DynamoDb
 import zio.aws.kinesis.Kinesis
 import zio.aws.netty.NettyHttpClient
+import zio.dynamodb.DynamoDBExecutor
 
 object Main extends ZIOAppDefault {
 
-  val program: ZIO[Kinesis with LeaseRepository with Any with ConsumerRoutes, Throwable, Unit] =
-    ZIO.serviceWithZIO[ConsumerRoutes](_.start) *> OutletEventConsumer.read
+  val program: ZIO[Kinesis with LeaseRepository with Any with CustomerServer, Throwable, Unit] =
+    ZIO.serviceWithZIO[CustomerServer](_.start) *> OutletEventConsumer.read
 
   override def run: URIO[Any, ExitCode] =
     program
@@ -21,8 +23,12 @@ object Main extends ZIOAppDefault {
         AwsConfig.default,
         ChargingSessionProducer.make,
         ChargingSessionProducer.live,
-        ConsumerRoutes.live,
+        ChargingRequestRoutes.live,
+        CustomerRoutes.live,
+        CustomerServer.live,
         DynamoDb.live,
+        DynamoDBCustomerService.live,
+        DynamoDBExecutor.live,
         DynamoDbLeaseRepository.live,
         Kinesis.live,
         NettyHttpClient.default,
@@ -33,13 +39,6 @@ object Main extends ZIOAppDefault {
 
 /*
   sbt run -jvm-debug 9999
-
-
-
-  now that we have the protobufs and two kinesis streams
-  - should we want to squeeze that into one stream?
-    - can we decidee this later?
-    - the protobufs and all data classes would become more abstract
 
   - then consumer store things in dynamodb
   - then consumer emit to kinesis

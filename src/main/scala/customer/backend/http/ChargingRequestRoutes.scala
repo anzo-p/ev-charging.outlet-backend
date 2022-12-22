@@ -1,14 +1,13 @@
-package consumer.backend.http
+package customer.backend.http
 
-import consumer.backend.events.StreamWriter
-import consumer.backend.http.dto.CreateChargingSession
+import customer.backend.events.StreamWriter
+import customer.backend.http.dto.CreateChargingSession
 import shared.http.BaseRoutes
 import zhttp.http._
-import zhttp.service.Server
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
 
-final case class ConsumerRoutes(streamWriter: StreamWriter) extends BaseRoutes {
+final case class ChargingRequestRoutes(streamWriter: StreamWriter) extends BaseRoutes {
 
   val routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
@@ -37,15 +36,12 @@ final case class ConsumerRoutes(streamWriter: StreamWriter) extends BaseRoutes {
       case _ @Method.POST -> !! / "chargers" / charger / "stop" =>
         ZIO.succeed(Response.text(s"Stop charging for charger $charger..."))
     }
-
-  val start: ZIO[Any, Throwable, Nothing] =
-    Server.start(8080, routes)
 }
 
-object ConsumerRoutes {
+object ChargingRequestRoutes {
 
-  val live: ZLayer[StreamWriter, Nothing, ConsumerRoutes] =
-    ZLayer.fromFunction(ConsumerRoutes.apply _)
+  val live: ZLayer[StreamWriter, Nothing, ChargingRequestRoutes] =
+    ZLayer.fromFunction(ChargingRequestRoutes.apply _)
 }
 /*
   serve rest api
