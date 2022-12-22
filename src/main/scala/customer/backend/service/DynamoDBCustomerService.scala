@@ -1,5 +1,6 @@
 package customer.backend.service
 
+import customer.backend.CustomerService
 import customer.backend.types.{Customer, CustomerParams}
 import zio._
 import zio.dynamodb.DynamoDBQuery._
@@ -7,14 +8,6 @@ import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
 
 import java.util.UUID
-
-sealed trait CustomerService {
-  def getById(customerId: UUID): IO[Throwable, Customer]
-
-  def register(params: CustomerParams): IO[Throwable, Customer]
-
-  def update(customerId: UUID, params: CustomerParams): IO[Throwable, Option[Item]]
-}
 
 final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends CustomerService {
   import customer.backend.service.DynamoDBCustomerService.tableResource

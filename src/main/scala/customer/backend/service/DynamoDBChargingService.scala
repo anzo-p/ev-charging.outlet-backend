@@ -1,5 +1,6 @@
 package customer.backend.service
 
+import customer.backend.ChargingService
 import shared.types.ChargingSession
 import zio._
 import zio.dynamodb.DynamoDBQuery._
@@ -7,14 +8,6 @@ import zio.dynamodb.PartitionKeyExpression.PartitionKey
 import zio.dynamodb._
 
 import java.util.UUID
-
-sealed trait ChargingService {
-  def hasActiveSession(customerId: UUID): IO[Throwable, Boolean]
-
-  def add(sessionData: ChargingSession): IO[Throwable, ChargingSession]
-
-  def update(sessionId: UUID, session: ChargingSession): IO[Throwable, ChargingSession]
-}
 
 final case class DynamoDBChargingService(executor: DynamoDBExecutor) extends ChargingService {
 

@@ -2,7 +2,7 @@ package customer.backend.http
 
 import customer.backend.events.StreamWriter
 import customer.backend.http.dto.CreateChargingSession
-import customer.backend.service.{ChargingService, CustomerService}
+import customer.backend.{ChargingService, CustomerService}
 import shared.http.BaseRoutes
 import zhttp.http._
 import zio._
