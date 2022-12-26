@@ -4,11 +4,12 @@ import customer.backend.events.StreamWriter
 import customer.backend.http.dto.CreateChargingSession
 import customer.backend.{ChargingService, CustomerService}
 import shared.http.BaseRoutes
+import shared.types.outletStatus.OutletStatusEvent
 import zhttp.http._
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
 
-final case class ChargingRequestRoutes(streamWriter: StreamWriter, customerService: CustomerService, chargingService: ChargingService)
+final case class ChargingRequestRoutes(customerService: CustomerService, chargingService: ChargingService, outletProducer: StreamWriter)
     extends BaseRoutes {
 
   val routes: Http[Any, Throwable, Request, Response] =
@@ -18,18 +19,18 @@ final case class ChargingRequestRoutes(streamWriter: StreamWriter, customerServi
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateChargingSession].orFail(invalidPayload)
           // create <- CreateChargingSession.validate(dto).orFail(invalidPayload) - nothing to validate yet
-          event = dto.toEvent
+          session = dto.toModel
           _       <- customerService.getById(dto.customerId).orElseFail(invalidPayload("this customer doesn't exist"))
           already <- chargingService.hasActiveSession(dto.customerId).mapError(serverError)
           _       <- ZIO.fromEither(Either.cond(!already, (), badRequest("customer already has active session")))
-          _       <- chargingService.add(event).mapError(serverError)
-          _       <- streamWriter.put(event).mapError(serverError)
+          _       <- chargingService.add(session).mapError(serverError)
+          _       <- outletProducer.put(OutletStatusEvent.appStart(session.outlet.outletId, session.customer.rfidTag)).mapError(serverError)
         } yield {
           Response(
             Status.Created,
             defaultHeaders,
             Body.fromString {
-              CreateChargingSession.fromEvent(event).toJson
+              CreateChargingSession.fromModel(session).toJson
             }
           )
         }).respond
@@ -44,6 +45,7 @@ object ChargingRequestRoutes {
   val live: ZLayer[StreamWriter with CustomerService with ChargingService, Nothing, ChargingRequestRoutes] =
     ZLayer.fromFunction(ChargingRequestRoutes.apply _)
 }
+
 /*
   serve rest api
   - post - consumer client requests begins charging { consumer data }

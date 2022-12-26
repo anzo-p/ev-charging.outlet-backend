@@ -1,6 +1,6 @@
 package customer.backend.http.dto
 
-import customer.backend.types._
+import customer.backend.types.customer._
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.util.UUID
@@ -13,8 +13,8 @@ final case class CreateCustomer(
     paymentMethod: String
   ) {
 
-  def toParams: CustomerParams =
-    CustomerParams(
+  def toModel: Customer =
+    Customer(
       address,
       email,
       paymentMethod

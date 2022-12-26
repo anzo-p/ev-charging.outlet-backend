@@ -1,4 +1,4 @@
-package customer.backend.types
+package customer.backend.types.customer
 
 import zio.schema.{DeriveSchema, Schema}
 
@@ -15,12 +15,12 @@ final case class Customer(
 object Customer {
   implicit lazy val schema: Schema[Customer] = DeriveSchema.gen[Customer]
 
-  def from(params: CustomerParams): Customer =
+  def apply(address: String, email: String, paymentMethod: String): Customer =
     Customer(
       customerId    = UUID.randomUUID(),
       rfidTag       = UUID.randomUUID().toString,
-      address       = params.address,
-      email         = params.email,
-      paymentMethod = params.paymentMethod
+      address       = address,
+      email         = email,
+      paymentMethod = paymentMethod
     )
 }

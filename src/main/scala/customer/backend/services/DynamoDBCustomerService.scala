@@ -1,7 +1,7 @@
-package customer.backend.service
+package customer.backend.services
 
 import customer.backend.CustomerService
-import customer.backend.types.{Customer, CustomerParams}
+import customer.backend.types.customer.Customer
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.ProjectionExpression.$
@@ -10,7 +10,7 @@ import zio.dynamodb._
 import java.util.UUID
 
 final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends CustomerService {
-  import customer.backend.service.DynamoDBCustomerService.tableResource
+  import DynamoDBCustomerService.tableResource
 
   override def getById(customerId: UUID): IO[Throwable, Customer] =
     (for {
@@ -22,18 +22,18 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
       }
       .provideLayer(ZLayer.succeed(executor))
 
-  override def register(params: CustomerParams): IO[Throwable, Customer] =
+  override def register(customer: Customer): IO[Throwable, Customer] =
     (for {
-      customer <- ZIO.succeed(Customer.from(params))
-      _        <- put(tableResource, customer).execute
-    } yield customer)
+      insert <- ZIO.succeed(customer)
+      _      <- put(tableResource, insert).execute
+    } yield insert)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def update(customerId: UUID, params: CustomerParams): IO[Throwable, Option[Item]] =
+  override def update(customerId: UUID, customer: Customer): IO[Throwable, Option[Item]] =
     updateItem(tableResource, PrimaryKey("customerId" -> customerId.toString)) {
-      $("address").set(params.address) +
-        $("email").set(params.email) +
-        $("paymentMethod").set(params.paymentMethod)
+      $("address").set(customer.address) +
+        $("email").set(customer.email) +
+        $("paymentMethod").set(customer.paymentMethod)
     }.execute
       .provideLayer(ZLayer.succeed(executor))
 }

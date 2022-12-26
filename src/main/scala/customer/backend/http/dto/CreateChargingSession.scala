@@ -1,21 +1,23 @@
 package customer.backend.http.dto
 
-import shared.types.enums.{OutletStatus, PurchaseChannel}
-import shared.types.{ChargingCustomer, ChargingOutlet, ChargingSession}
+import customer.backend.types.chargingSession.{ChargingCustomer, ChargingOutlet, ChargingSession}
+import shared.types.enums.{OutletDeviceState, PurchaseChannel}
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.util.UUID
 
-final case class CreateChargingCustomer(rfidTag: Option[String])
+final case class CreateChargingCustomer(rfidTag: String)
 
 object CreateChargingCustomer {
-  implicit val codec: JsonCodec[CreateChargingCustomer] = DeriveJsonCodec.gen[CreateChargingCustomer]
+  implicit val codec: JsonCodec[CreateChargingCustomer] =
+    DeriveJsonCodec.gen[CreateChargingCustomer]
 }
 
-final case class CreateChargingOutlet(outletId: UUID, deviceCode: String, status: String)
+final case class CreateChargingOutlet(outletId: UUID, deviceCode: String, state: String)
 
 object CreateChargingOutlet {
-  implicit val codec: JsonCodec[CreateChargingOutlet] = DeriveJsonCodec.gen[CreateChargingOutlet]
+  implicit val codec: JsonCodec[CreateChargingOutlet] =
+    DeriveJsonCodec.gen[CreateChargingOutlet]
 }
 
 final case class CreateChargingSession(
@@ -28,12 +30,12 @@ final case class CreateChargingSession(
     endTime: Option[java.time.OffsetDateTime]
   ) {
 
-  def toEvent: ChargingSession =
+  def toModel: ChargingSession =
     ChargingSession(
       sessionId,
       customerId,
-      ChargingCustomer(customer.rfidTag),
-      ChargingOutlet(outlet.outletId, outlet.deviceCode, OutletStatus.withName(outlet.status)),
+      customer = ChargingCustomer(customer.rfidTag),
+      outlet   = ChargingOutlet(outlet.outletId, outlet.deviceCode, OutletDeviceState.withName(outlet.state)),
       PurchaseChannel.withName(purchaseChannel),
       startTime,
       endTime
@@ -41,14 +43,15 @@ final case class CreateChargingSession(
 }
 
 object CreateChargingSession {
-  implicit val codec: JsonCodec[CreateChargingSession] = DeriveJsonCodec.gen[CreateChargingSession]
+  implicit val codec: JsonCodec[CreateChargingSession] =
+    DeriveJsonCodec.gen[CreateChargingSession]
 
-  def fromEvent(event: ChargingSession): CreateChargingSession =
+  def fromModel(event: ChargingSession): CreateChargingSession =
     CreateChargingSession(
       event.sessionId,
       event.customerId,
-      CreateChargingCustomer(event.customer.rfidTag),
-      CreateChargingOutlet(event.outlet.outletId, event.outlet.deviceCode, event.outlet.status.entryName),
+      customer = CreateChargingCustomer(event.customer.rfidTag),
+      outlet   = CreateChargingOutlet(event.outlet.outletId, event.outlet.deviceCode, event.outlet.state.entryName),
       event.purchaseChannel.entryName,
       event.startTime,
       event.endTime

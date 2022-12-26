@@ -1,7 +1,7 @@
-package customer.backend.service
+package customer.backend.services
 
 import customer.backend.ChargingService
-import shared.types.ChargingSession
+import customer.backend.types.chargingSession.ChargingSession
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.PartitionKeyExpression.PartitionKey
@@ -16,7 +16,6 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor) extends Cha
       query <- queryAll[ChargingSession]("ev-outlet-app.charging-session.table")
                 .indexName("customerId-on-charging-session-index")
                 .whereKey(PartitionKey("customerId") === customerId.toString)
-                //.filter($("customerId").exists)
                 .execute
       result <- query.runCollect
     } yield result.headOption)

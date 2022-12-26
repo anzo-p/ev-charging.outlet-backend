@@ -1,7 +1,7 @@
 package customer.backend.http
 
+import customer.backend.CustomerService
 import customer.backend.http.dto.CreateCustomer
-import customer.backend.service.CustomerService
 import shared.http.BaseRoutes
 import shared.validation.InputValidation.validateUUID
 import zhttp.http._
@@ -31,13 +31,13 @@ final case class CustomerRoutes(service: CustomerService) extends BaseRoutes {
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateCustomer].orFail(invalidPayload)
           //create <- CreateCustomer.validate(dto).orFail(invalidPayload)
-          him <- service.register(dto.toParams).mapError(serverError)
+          them <- service.register(dto.toModel).mapError(serverError)
         } yield {
           Response(
             Status.Created,
             defaultHeaders,
             Body.fromString {
-              CreateCustomer.fromModel(him).toJson
+              CreateCustomer.fromModel(them).toJson
             }
           )
         }).respond
