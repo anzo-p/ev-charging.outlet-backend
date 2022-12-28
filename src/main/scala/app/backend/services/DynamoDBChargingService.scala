@@ -46,12 +46,15 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
 
-  override def setStopRequested(sessionId: UUID): Task[Unit] =
+  override def setStopRequested(sessionId: UUID): Task[Unit] = {
+    val targetState = OutletDeviceState.StoppingRequested
     (for {
-      data <- getByPK(sessionId).filterOrDie(mayTransitionTo(OutletDeviceState.Charging))(new Error("no data found"))
-      _    <- putByPK(data.copy(state = OutletDeviceState.StoppingRequested))
+      data <- getByPK(sessionId).filterOrFail(mayTransitionTo(targetState))(
+               new Error(s"outlet not in state ${OutletDeviceState.getPreStatesTo(targetState).mkString("[", ",", "]")}"))
+      _ <- putByPK(data.copy(state = targetState))
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
+  }
 
   override def getSession(sessionId: UUID): Task[ChargingSession] =
     (for {

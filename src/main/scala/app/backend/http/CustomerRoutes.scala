@@ -15,7 +15,7 @@ final case class CustomerRoutes(service: CustomerService) extends BaseRoutes {
       case Method.GET -> !! / "customers" / customer =>
         (for {
           customerId <- validateUUID(customer, "customer").toEither.orFail(unProcessableEntity)
-          him        <- service.getById(customerId).mapError(serverError)
+          him        <- service.getById(customerId).mapError(th => badRequest(th.getMessage))
         } yield {
           Response(
             Status.Ok,
@@ -31,7 +31,7 @@ final case class CustomerRoutes(service: CustomerService) extends BaseRoutes {
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateCustomer].orFail(invalidPayload)
           //create <- CreateCustomer.validate(dto).orFail(invalidPayload)
-          them <- service.register(dto.toModel).mapError(serverError)
+          them <- service.register(dto.toModel).mapError(th => badRequest(th.getMessage))
         } yield {
           Response(
             Status.Created,

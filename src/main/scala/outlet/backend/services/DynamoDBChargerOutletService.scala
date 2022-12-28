@@ -24,13 +24,17 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   override def schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
+  private def cannotTransitionTo(targetState: OutletDeviceState): String =
+    s"outlet not in (one of) state(s) ${OutletDeviceState.getPreStatesTo(targetState).mkString("[ ", " ,", " ]")}"
+
   private def checkAndSetState(
       outletId: UUID,
       nextState: OutletDeviceState,
+      message: String      = "no data found",
       yieldResult: Boolean = false
     ): ZIO[Any, Throwable, Option[ChargerOutlet]] =
     (for {
-      data    <- getByPK(outletId).filterOrDie(mayTransitionTo(nextState))(new Error("no data found"))
+      data    <- getByPK(outletId).filterOrFail(mayTransitionTo(nextState))(new Error(message))
       updated <- ZIO.succeed(data.copy(state = nextState))
       _       <- putByPK(updated)
     } yield if (yieldResult) Some(updated) else None)
@@ -44,25 +48,43 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       .provideLayer(ZLayer.succeed(executor))
 
   override def setAvailable(outletId: UUID): Task[Unit] =
-    checkAndSetState(outletId, OutletDeviceState.Available).unit
+    checkAndSetState(
+      outletId,
+      OutletDeviceState.Available,
+      cannotTransitionTo(OutletDeviceState.Available)
+    ).unit
 
   override def setCablePlugged(outletId: UUID): Task[Unit] =
-    checkAndSetState(outletId, OutletDeviceState.CablePlugged).unit
+    checkAndSetState(
+      outletId,
+      OutletDeviceState.CablePlugged,
+      cannotTransitionTo(OutletDeviceState.CablePlugged)
+    ).unit
 
-  override def setChargingRequested(outletId: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] =
-    checkAndSetState(outletId, OutletDeviceState.ChargingRequested, yieldResult = true).flatMap {
+  override def setChargingRequested(outletId: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] = {
+    val targetState = OutletDeviceState.Charging
+
+    checkAndSetState(
+      outletId,
+      targetState,
+      cannotTransitionTo(targetState),
+      yieldResult = true
+    ).flatMap {
       case None =>
         ZIO.fail(new Error("unsuccessful update"))
       case Some(outlet) =>
         ZIO.succeed(outlet)
     }
+  }
 
   override def beginCharging(outletId: UUID): Task[Unit] =
     checkAndSetState(outletId, OutletDeviceState.Charging).unit
 
-  override def aggregateConsumption(status: OutletStatusEvent): Task[ChargerOutlet] =
+  override def aggregateConsumption(status: OutletStatusEvent): Task[ChargerOutlet] = {
+    val targetState = OutletDeviceState.Charging
+
     (for {
-      data <- getByPK(status.outletId).filterOrDie(mayTransitionTo(OutletDeviceState.Charging))(new Error("no data found"))
+      data <- getByPK(status.outletId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
                  data.copy(
@@ -72,10 +94,13 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       _ <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
+  }
 
-  override def stopCharging(status: OutletStatusEvent): Task[ChargerOutlet] =
+  override def stopCharging(status: OutletStatusEvent): Task[ChargerOutlet] = {
+    val targetState = OutletDeviceState.CablePlugged
+
     (for {
-      data <- getByPK(status.outletId).filterOrDie(mayTransitionTo(OutletDeviceState.CablePlugged))(new Error("no data found"))
+      data <- getByPK(status.outletId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
                  data.copy(
@@ -87,6 +112,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       _ <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
+  }
 }
 
 object DynamoDBChargerOutletService {

@@ -1,7 +1,7 @@
 package app.backend.types.chargingSession
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
-import shared.types.enums.OutletDeviceState.isPreStateTo
+import shared.types.enums.OutletDeviceState.getPreStatesTo
 import shared.types.enums.{OutletDeviceState, PurchaseChannel}
 import shared.types.outletStatus.OutletStatusEvent
 import zio.schema.{DeriveSchema, Schema}
@@ -52,7 +52,7 @@ object ChargingSession extends DateTimeSchemaImplicits {
     )
 
   def mayTransitionTo(nextState: OutletDeviceState): ChargingSession => Boolean =
-    _.state.in(isPreStateTo(nextState))
+    _.state.in(getPreStatesTo(nextState))
 }
 
 final case class ChargingSessionUpdate(

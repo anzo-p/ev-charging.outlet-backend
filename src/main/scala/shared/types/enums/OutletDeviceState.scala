@@ -58,6 +58,6 @@ object OutletDeviceState extends Enum[OutletDeviceState] {
     }
   }
 
-  def isPreStateTo(next: OutletDeviceState): Seq[OutletDeviceState] =
+  def getPreStatesTo(next: OutletDeviceState): Seq[OutletDeviceState] =
     OutletDeviceState.Transitions.preStates(next)
 }

@@ -25,7 +25,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
           dto  <- body.fromJson[ChargerOutletDto].orFail(invalidPayload)
           // validate payload
           outlet = dto.toModel
-          _ <- service.register(outlet).mapError(serverError)
+          _ <- service.register(outlet).mapError(th => badRequest(th.getMessage))
         } yield {
           Response(
             Status.Created,
@@ -39,22 +39,10 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
       case Method.GET -> !! / "chargers" / "outlet" / outlet / "customer" / rfid / "start" =>
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
-          initData <- service
-                       .setChargingRequested(outletId, rfid)
-                       .mapError(serverError) // should not set doubled, but response "already active session"
-          _ <- streamWriter.put(ChargerOutlet.toOutletStatus(initData)).mapError(serverError)
+          initData <- service.setChargingRequested(outletId, rfid).mapError(th => badRequest(th.getMessage))
+          _        <- streamWriter.put(ChargerOutlet.toOutletStatus(initData)).mapError(serverError)
           // customer.backend will consume, check user, then emit ok to us
           // our consumer expects ack and calls service.beginCharging(..) and zio.http client to post respective message to aws api gateway
-        } yield {
-          Response(Status.Ok, defaultHeaders)
-        }).respond
-
-      case Method.GET -> !! / "chargers" / "outlet" / outlet / "customer" / rfid / "stop" =>
-        (for {
-          outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
-          report   <- service.stopCharging(OutletStatusEvent.deviceStop(outletId, rfid)).mapError(serverError)
-          _        <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
-          // use zio.http client to post respective message to aws api gateway
         } yield {
           Response(Status.Ok, defaultHeaders)
         }).respond
@@ -66,8 +54,18 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateIntermediateReport].orFail(invalidPayload)
           // validate input
-          report <- service.aggregateConsumption(CreateIntermediateReport.toOutletStatus(dto)).mapError(serverError)
+          report <- service.aggregateConsumption(CreateIntermediateReport.toOutletStatus(dto)).mapError(th => badRequest(th.getMessage))
           _      <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
+        } yield {
+          Response(Status.Ok, defaultHeaders)
+        }).respond
+
+      case Method.GET -> !! / "chargers" / "outlet" / outlet / "customer" / rfid / "stop" =>
+        (for {
+          outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
+          report <- service.stopCharging(OutletStatusEvent.deviceStop(outletId, rfid)).mapError(th => badRequest(th.getMessage))
+          _ <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
+          // use zio.http client to post respective message to aws api gateway
         } yield {
           Response(Status.Ok, defaultHeaders)
         }).respond

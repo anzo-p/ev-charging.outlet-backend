@@ -18,29 +18,13 @@ final case class ChargingRoutes(customerService: CustomerService, chargingServic
       case Method.GET -> !! / "chargers" / "customer" / customer / "history" =>
         (for {
           customerId <- validateUUID(customer, "customer").toEither.orFail(unProcessableEntity)
-          history    <- chargingService.getHistory(customerId).mapError(serverError)
+          history    <- chargingService.getHistory(customerId).mapError(th => badRequest(th.getMessage))
         } yield {
           Response(
             Status.Created,
             defaultHeaders,
             Body.fromString {
               history.map(ChargingSessionDto.fromModel).toJson
-            }
-          )
-        }).respond
-
-      case Method.GET -> !! / "chargers" / "customer" / customer / "session" / session =>
-        (for {
-          urlVars <- (validateUUID(customer, "customer") <*> validateUUID(session, "session")).combineErrors.orFail(unProcessableEntity)
-          (customerId, sessionId) = urlVars
-          _       <- customerService.getRfidTag(customerId).orElseFail(invalidPayload("this customer doesn't exist"))
-          session <- chargingService.getSession(sessionId).mapError(serverError)
-        } yield {
-          Response(
-            Status.Ok,
-            defaultHeaders,
-            Body.fromString {
-              ChargingSessionDto.fromModel(session).toJson
             }
           )
         }).respond
@@ -52,12 +36,28 @@ final case class ChargingRoutes(customerService: CustomerService, chargingServic
           // create <- CreateChargingSession.validate(dto).orFail(invalidPayload) - nothing to validate yet
           rfidTag <- customerService.getRfidTag(dto.customerId).orElseFail(invalidPayload("this customer doesn't exist"))
           session = dto.toModel
-          _ <- chargingService.initialize(session).mapError(serverError)
+          _ <- chargingService.initialize(session).mapError(th => badRequest(th.getMessage))
           _ <- outletProducer.put(OutletStatusEvent.appStart(session.outletId, rfidTag)).mapError(serverError)
           // app will forward to poll for status reports
         } yield {
           Response(
             Status.Created,
+            defaultHeaders,
+            Body.fromString {
+              ChargingSessionDto.fromModel(session).toJson
+            }
+          )
+        }).respond
+
+      case Method.GET -> !! / "chargers" / "customer" / customer / "session" / session =>
+        (for {
+          urlVars <- (validateUUID(customer, "customer") <*> validateUUID(session, "session")).combineErrors.orFail(unProcessableEntity)
+          (customerId, sessionId) = urlVars
+          _       <- customerService.getRfidTag(customerId).orElseFail(invalidPayload("this customer doesn't exist"))
+          session <- chargingService.getSession(sessionId).mapError(th => badRequest(th.getMessage))
+        } yield {
+          Response(
+            Status.Ok,
             defaultHeaders,
             Body.fromString {
               ChargingSessionDto.fromModel(session).toJson
@@ -71,7 +71,7 @@ final case class ChargingRoutes(customerService: CustomerService, chargingServic
           dto  <- body.fromJson[ChargingSessionDto].orFail(invalidPayload)
           // validate
           rfidTag <- customerService.getRfidTag(dto.customerId).orElseFail(invalidPayload("this customer doesn't exist"))
-          _       <- chargingService.setStopRequested(dto.sessionId).mapError(serverError)
+          _       <- chargingService.setStopRequested(dto.sessionId).mapError(th => badRequest(th.getMessage))
           _       <- outletProducer.put(OutletStatusEvent.appStop(dto.outletId, rfidTag)).mapError(serverError)
           // app will forward to poll for final report
         } yield {

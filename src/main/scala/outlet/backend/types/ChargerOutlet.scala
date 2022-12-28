@@ -2,7 +2,7 @@ package outlet.backend.types
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}
-import shared.types.enums.OutletDeviceState.isPreStateTo
+import shared.types.enums.OutletDeviceState.getPreStatesTo
 import shared.types.outletStatus.{EventSessionData, OutletStatusEvent}
 import zio.schema.{DeriveSchema, Schema}
 
@@ -66,5 +66,5 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
     )
 
   def mayTransitionTo(nextState: OutletDeviceState): ChargerOutlet => Boolean =
-    _.state.in(isPreStateTo(nextState))
+    _.state.in(getPreStatesTo(nextState))
 }
