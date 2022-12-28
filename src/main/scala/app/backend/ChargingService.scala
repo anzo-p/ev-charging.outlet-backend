@@ -1,6 +1,6 @@
-package customer.backend
+package app.backend
 
-import customer.backend.types.chargingSession.ChargingSession
+import app.backend.types.chargingSession.ChargingSession
 import zio.Task
 
 import java.util.UUID

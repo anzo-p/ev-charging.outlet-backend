@@ -1,7 +1,5 @@
 package shared.types.outletStatus
 
-import outlet.backend.http.dto.CreateIntermediateReport
-import outlet.backend.types.ChargerOutlet
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 
 import java.util.UUID
@@ -81,36 +79,6 @@ object OutletStatusEvent {
         periodStart      = None,
         periodEnd        = Some(java.time.OffsetDateTime.now()),
         powerConsumption = 0.0
-      )
-    )
-
-  def fromMidReport(report: CreateIntermediateReport): OutletStatusEvent =
-    OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = report.outletId,
-      eventTime = java.time.OffsetDateTime.now(),
-      state     = OutletDeviceState.Charging,
-      recentSession = EventSessionData(
-        sessionId        = None,
-        rfidTag          = report.rfidTag,
-        periodStart      = Some(report.periodStart),
-        periodEnd        = Some(report.periodEnd),
-        powerConsumption = report.powerConsumption
-      )
-    )
-
-  def fromOutlet(outlet: ChargerOutlet): OutletStatusEvent =
-    OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = outlet.outletId,
-      eventTime = outlet.startTime.getOrElse(java.time.OffsetDateTime.now()),
-      state     = outlet.state,
-      recentSession = EventSessionData(
-        sessionId        = outlet.sessionId,
-        rfidTag          = outlet.rfidTag,
-        periodStart      = outlet.startTime,
-        periodEnd        = outlet.endTime,
-        powerConsumption = outlet.powerConsumption
       )
     )
 }

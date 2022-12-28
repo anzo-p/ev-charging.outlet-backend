@@ -1,6 +1,6 @@
-package customer.backend.http.dto
+package app.backend.http.dto
 
-import customer.backend.types.chargingSession.ChargingSession
+import app.backend.types.chargingSession.ChargingSession
 import shared.types.enums.PurchaseChannel
 import zio.json.{DeriveJsonCodec, JsonCodec}
 

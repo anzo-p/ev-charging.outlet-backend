@@ -1,8 +1,9 @@
 package outlet.backend.types
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
-import shared.types.enums.OutletDeviceState
+import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.enums.OutletDeviceState.isPreStateTo
+import shared.types.outletStatus.{EventSessionData, OutletStatusEvent}
 import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
@@ -47,6 +48,21 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       powerConsumption      = 0.0,
       totalChargingEvents   = 0L,
       totalPowerConsumption = 0.0
+    )
+
+  def toOutletStatus(outlet: ChargerOutlet): OutletStatusEvent =
+    OutletStatusEvent(
+      requester = OutletStateRequester.OutletDevice,
+      outletId  = outlet.outletId,
+      eventTime = outlet.startTime.getOrElse(java.time.OffsetDateTime.now()),
+      state     = outlet.state,
+      recentSession = EventSessionData(
+        sessionId        = outlet.sessionId,
+        rfidTag          = outlet.rfidTag,
+        periodStart      = outlet.startTime,
+        periodEnd        = outlet.endTime,
+        powerConsumption = outlet.powerConsumption
+      )
     )
 
   def mayTransitionTo(nextState: OutletDeviceState): ChargerOutlet => Boolean =

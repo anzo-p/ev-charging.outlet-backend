@@ -1,6 +1,6 @@
-package customer.backend.events
+package app.backend.events
 
-import customer.backend.{ChargingService, CustomerService}
+import app.backend.{ChargingService, CustomerService}
 import nl.vroste.zio.kinesis.client.Record
 import nl.vroste.zio.kinesis.client.zionative.{Consumer, LeaseRepository}
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}

@@ -64,3 +64,27 @@ object OutletEventConsumer {
   val live: ZLayer[ChargerOutletService, Nothing, OutletEventConsumer] =
     ZLayer.fromFunction(OutletEventConsumer.apply _)
 }
+
+/*
+  kinesis consumer
+  - ack to start - same as intermediate report
+    - updates ChargingSession to Charging in DB
+
+  - request to start
+    - creates a ChargingSession and stores in DB
+    - creates an OutletStatusEvent with Charging and writes to kinesis
+
+  - ack to stop
+    - updates ChargingSession to completed in DB
+
+
+
+
+  kinesis consumer
+  - ack to start        -  Charging
+  - request to start       ChargingRequested
+  - intermediate report    Charging
+  - ack to stop            CablePlugged | Available
+
+  - request to stop   not available, we may send to device but they'll stop instantly on token request
+ */

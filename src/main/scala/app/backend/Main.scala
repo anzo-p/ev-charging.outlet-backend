@@ -1,8 +1,8 @@
-package customer.backend
+package app.backend
 
-import customer.backend.events.{OutletEventConsumer, OutletStatusProducer}
-import customer.backend.http.{ChargingRequestRoutes, CustomerRoutes, CustomerServer}
-import customer.backend.services.{DynamoDBChargingService, DynamoDBCustomerService}
+import app.backend.events.{OutletEventConsumer, OutletStatusProducer}
+import app.backend.http.{AppServer, ChargingRoutes, CustomerRoutes}
+import app.backend.services.{DynamoDBChargingService, DynamoDBCustomerService}
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
 import zio._
 import zio.aws.core.config.AwsConfig
@@ -14,15 +14,15 @@ import zio.dynamodb.DynamoDBExecutor
 object Main extends ZIOAppDefault {
 
   val program =
-    ZIO.serviceWithZIO[CustomerServer](_.start).zipPar(ZIO.serviceWithZIO[OutletEventConsumer](_.start))
+    ZIO.serviceWithZIO[AppServer](_.start).zipPar(ZIO.serviceWithZIO[OutletEventConsumer](_.start))
 
   override def run: URIO[Any, ExitCode] =
     program
       .provide(
         AwsConfig.default,
-        ChargingRequestRoutes.live,
+        ChargingRoutes.live,
         CustomerRoutes.live,
-        CustomerServer.live,
+        AppServer.live,
         DynamoDb.live,
         DynamoDBChargingService.live,
         DynamoDBCustomerService.live,

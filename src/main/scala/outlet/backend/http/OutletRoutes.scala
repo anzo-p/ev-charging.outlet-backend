@@ -3,6 +3,7 @@ package outlet.backend.http
 import outlet.backend.ChargerOutletService
 import outlet.backend.events.StreamWriter
 import outlet.backend.http.dto._
+import outlet.backend.types.ChargerOutlet
 import shared.http.BaseRoutes
 import shared.types.outletStatus.OutletStatusEvent
 import shared.validation.InputValidation.validateUUID
@@ -41,7 +42,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
           initData <- service
                        .setChargingRequested(outletId, rfid)
                        .mapError(serverError) // should not set doubled, but response "already active session"
-          _ <- streamWriter.put(OutletStatusEvent.fromOutlet(initData)).mapError(serverError)
+          _ <- streamWriter.put(ChargerOutlet.toOutletStatus(initData)).mapError(serverError)
           // customer.backend will consume, check user, then emit ok to us
           // our consumer expects ack and calls service.beginCharging(..) and zio.http client to post respective message to aws api gateway
         } yield {
@@ -52,7 +53,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
           report   <- service.stopCharging(OutletStatusEvent.deviceStop(outletId, rfid)).mapError(serverError)
-          _        <- streamWriter.put(OutletStatusEvent.fromOutlet(report)).mapError(serverError)
+          _        <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
           // use zio.http client to post respective message to aws api gateway
         } yield {
           Response(Status.Ok, defaultHeaders)
@@ -65,8 +66,8 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[CreateIntermediateReport].orFail(invalidPayload)
           // validate input
-          report <- service.aggregateConsumption(OutletStatusEvent.fromMidReport(dto)).mapError(serverError)
-          _      <- streamWriter.put(OutletStatusEvent.fromOutlet(report)).mapError(serverError)
+          report <- service.aggregateConsumption(CreateIntermediateReport.toOutletStatus(dto)).mapError(serverError)
+          _      <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
         } yield {
           Response(Status.Ok, defaultHeaders)
         }).respond

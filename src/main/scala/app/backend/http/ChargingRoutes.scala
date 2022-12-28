@@ -1,8 +1,8 @@
-package customer.backend.http
+package app.backend.http
 
-import customer.backend.events.StreamWriter
-import customer.backend.http.dto.{ChargingSessionDto, CreateChargingSessionDto}
-import customer.backend.{ChargingService, CustomerService}
+import app.backend.{ChargingService, CustomerService}
+import app.backend.events.StreamWriter
+import app.backend.http.dto.{ChargingSessionDto, CreateChargingSessionDto}
 import shared.http.BaseRoutes
 import shared.types.outletStatus.OutletStatusEvent
 import shared.validation.InputValidation._
@@ -10,7 +10,7 @@ import zhttp.http._
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
 
-final case class ChargingRequestRoutes(customerService: CustomerService, chargingService: ChargingService, outletProducer: StreamWriter)
+final case class ChargingRoutes(customerService: CustomerService, chargingService: ChargingService, outletProducer: StreamWriter)
     extends BaseRoutes {
 
   val routes: Http[Any, Throwable, Request, Response] =
@@ -80,8 +80,8 @@ final case class ChargingRequestRoutes(customerService: CustomerService, chargin
     }
 }
 
-object ChargingRequestRoutes {
+object ChargingRoutes {
 
-  val live: ZLayer[StreamWriter with CustomerService with ChargingService, Nothing, ChargingRequestRoutes] =
-    ZLayer.fromFunction(ChargingRequestRoutes.apply _)
+  val live: ZLayer[StreamWriter with CustomerService with ChargingService, Nothing, ChargingRoutes] =
+    ZLayer.fromFunction(ChargingRoutes.apply _)
 }

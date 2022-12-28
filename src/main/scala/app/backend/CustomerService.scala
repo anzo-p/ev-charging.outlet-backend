@@ -1,6 +1,6 @@
-package customer.backend
+package app.backend
 
-import customer.backend.types.customer.Customer
+import app.backend.types.customer.Customer
 import zio.Task
 import zio.dynamodb.Item
 

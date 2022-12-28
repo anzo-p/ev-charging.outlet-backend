@@ -1,8 +1,8 @@
-package customer.backend.services
+package app.backend.services
 
-import customer.backend.ChargingService
-import customer.backend.types.chargingSession.ChargingSession
-import customer.backend.types.chargingSession.ChargingSession.mayTransitionTo
+import app.backend.types.chargingSession.ChargingSession
+import ChargingSession.mayTransitionTo
+import app.backend.ChargingService
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState

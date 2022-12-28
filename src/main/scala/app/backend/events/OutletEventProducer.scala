@@ -1,4 +1,4 @@
-package customer.backend.events
+package app.backend.events
 
 import nl.vroste.zio.kinesis.client.{Producer, ProducerRecord}
 import shared.types.outletStatus.{OutletStatusEvent, OutletStatusEventSerDes}
