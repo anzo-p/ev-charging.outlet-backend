@@ -14,9 +14,9 @@ import zio.dynamodb.DynamoDBExecutor
 object Main extends ZIOAppDefault {
 
   val program =
-    ZIO.serviceWithZIO[OutletRoutes](_.start) *> ZIO.serviceWithZIO[OutletEventConsumer](_.start)
+    ZIO.serviceWithZIO[OutletRoutes](_.start).zipPar(ZIO.serviceWithZIO[OutletEventConsumer](_.start))
 
-  override def run: ZIO[Any, Throwable, Unit] =
+  override def run: ZIO[Any, Throwable, ExitCode] =
     program.provide(
       AwsConfig.default,
       DynamoDb.live,

@@ -13,6 +13,7 @@ object OutletStatusEventSerDes {
 
   def toProtobuf(session: EventSessionData): EventSessionDataProto =
     EventSessionDataProto(
+      sessionId        = session.sessionId.getOrElse("").toString,
       rfidTag          = session.rfidTag,
       periodStart      = session.periodStart.map(_.toProtobufTs),
       periodEnd        = session.periodEnd.map(_.toProtobufTs),
@@ -30,7 +31,7 @@ object OutletStatusEventSerDes {
 
   def fromProtobuf(proto: EventSessionDataProto): EventSessionData =
     EventSessionData(
-      sessionId        = Some(UUID.fromString(proto.sessionId)),
+      sessionId        = if (proto.sessionId == "") None else Some(UUID.fromString(proto.sessionId)),
       rfidTag          = proto.rfidTag,
       periodStart      = proto.periodStart.map(_.toJavaOffsetDateTime),
       periodEnd        = proto.periodEnd.map(_.toJavaOffsetDateTime),

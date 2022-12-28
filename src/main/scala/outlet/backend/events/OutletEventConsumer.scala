@@ -1,17 +1,15 @@
 package outlet.backend.events
 
 import nl.vroste.zio.kinesis.client.Record
-import nl.vroste.zio.kinesis.client.zionative.Consumer
+import nl.vroste.zio.kinesis.client.zionative.{Consumer, LeaseRepository}
 import outlet.backend.ChargerOutletService
-import shared.types.enums.OutletDeviceState
+import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.outletStatus.{OutletStatusEvent, OutletStatusEventSerDes}
+import zio.Console.printLine
 import zio._
+import zio.aws.kinesis.Kinesis
 
 final case class OutletEventConsumer(outletService: ChargerOutletService) {
-
-  def consume2(record: Record[OutletStatusEvent]) =
-    //ZIO.succeed(s"consuming ... ${println(record)}")
-    ZIO.succeed(println(s"consuming ...$record")).unit
 
   def consume(record: Record[OutletStatusEvent]): Task[Unit] =
     record.data.state match {
@@ -38,70 +36,31 @@ final case class OutletEventConsumer(outletService: ChargerOutletService) {
         } yield ()
     }
 
-  val start =
+  val start: URIO[Kinesis with LeaseRepository with Any, ExitCode] =
     Consumer
       .shardedStream(
         streamName       = "ev-outlet-app.outlet-events.stream",
-        applicationName  = "my-application",
+        applicationName  = "outlet-backend",
         deserializer     = OutletStatusEventSerDes.byteArray,
         workerIdentifier = "worker1"
       )
-      .flatMapPar(Int.MaxValue) {
-        case (_, shardStream, checkpointer) =>
+      .flatMapPar(4) {
+        case (shardId, shardStream, checkpointer) =>
           shardStream
-          //.tap(record => printLine(s"Processing record $record on shard $shardId"))
+            .filter(_.data.requester == OutletStateRequester.Application)
+            .tap(record => printLine(s"Processing record $record on shard $shardId"))
+            .tap(_ => ZIO.succeed(Thread.sleep(1111))) // slow down for now, later find out why required
             .tap(consume)
             .tap(checkpointer.stage(_))
             .viaFunction(checkpointer.checkpointBatched[Any](nr = 1000, interval = 5.minutes))
       }
       .tap(_ => ZIO.succeed(Thread.sleep(1111))) // slow down for now, later find out why required
       .runDrain
+      .exitCode
 }
 
 object OutletEventConsumer {
 
-  val live =
+  val live: ZLayer[ChargerOutletService, Nothing, OutletEventConsumer] =
     ZLayer.fromFunction(OutletEventConsumer.apply _)
 }
-/*
-  missing
-
-  consumer.backend
-    - http routes
-      - on charging requests
-        - dont produce ChargingSession to kinesis
-        - produce a will to begin charging
-        - other endpoints will do the rest, these will be forwarded to either in backend on frontend
-
-    OK - do more routes later
-
-    - consumer
-      - on request to charge from outlet.backend
-        - check consumer ok
-        - create ChargingSession, store into db
-        - produce ok
-
-      - on other events
-        - aggregate to consumer data if their status conforms
-
-  outlet.backend
-    - http routes
-      - we can do this later...
-
-    - consumer
-      - on request to charge from consumer.backend
-        - check outlet ok
-        - tell device to begin charging
-          - can log now, later will use zio-http client to send message to aws gateway endpoint
-        - produce ok
-
-      - on other statuses from consumer.backend
-        - do what they say if device ok
-        - log the signals that wold be sent to device
-        - i suppose there must be some kinds of acks or else outlet and app might diverge
-
-      - on request to charge from device http
-        - check outlet ok
-        - produce a will to begin charging
-
- */

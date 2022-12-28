@@ -5,7 +5,7 @@ import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.util.UUID
 
-final case class CreateChargerOutletDto(
+final case class ChargerOutletDto(
     outletId: Option[UUID],
     chargerGroupId: UUID,
     outletCode: String,
@@ -23,11 +23,11 @@ final case class CreateChargerOutletDto(
     )
 }
 
-object CreateChargerOutletDto {
-  implicit val codec: JsonCodec[CreateChargerOutletDto] = DeriveJsonCodec.gen[CreateChargerOutletDto]
+object ChargerOutletDto {
+  implicit val codec: JsonCodec[ChargerOutletDto] = DeriveJsonCodec.gen[ChargerOutletDto]
 
-  def fromModel(model: ChargerOutlet): CreateChargerOutletDto =
-    CreateChargerOutletDto(
+  def fromModel(model: ChargerOutlet): ChargerOutletDto =
+    ChargerOutletDto(
       Some(model.outletId),
       model.chargerGroupId,
       model.outletCode,

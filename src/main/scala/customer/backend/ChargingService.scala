@@ -1,14 +1,15 @@
 package customer.backend
 
 import customer.backend.types.chargingSession.ChargingSession
-import zio.IO
+import zio.Task
 
 import java.util.UUID
 
 trait ChargingService {
-  def hasActiveSession(customerId: UUID): IO[Throwable, Boolean]
 
-  def add(sessionData: ChargingSession): IO[Throwable, ChargingSession]
+  def initialize(session: ChargingSession): Task[Unit]
 
-  def update(sessionId: UUID, session: ChargingSession): IO[Throwable, ChargingSession]
+  def setStopRequested(sessionId: UUID): Task[Unit]
+
+  def getHistory(customerId: UUID): Task[List[ChargingSession]]
 }

@@ -30,8 +30,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       chargerGroupId: UUID,
       outletCode: String,
       address: String,
-      maxPower: Double,
-      rfidTag: String = ""
+      maxPower: Double
     ): ChargerOutlet =
     ChargerOutlet(
       outletId              = UUID.randomUUID(),
@@ -41,7 +40,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       maxPower              = maxPower,
       state                 = OutletDeviceState.Available,
       sessionId             = None,
-      rfidTag               = rfidTag,
+      rfidTag               = "",
       startTime             = None,
       endTime               = None,
       powerConsumption      = 0.0,

@@ -10,19 +10,19 @@ import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
+import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
 
 final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     extends ChargerOutletService
-    with DynamoDBPrimitives
+    with DynamoDBPrimitives[ChargerOutlet]
     with DateTimeSchemaImplicits {
 
   val tableResource = "ev-outlet-app.charger-outlet.table"
   val primaryKey    = "outletId"
 
-  private def rfidTagAnd(rfidTag: String, p: FilterExpression): FilterExpression =
-    ($("rfidTag") === rfidTag) && p
+  override def schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
   override def register(outlet: ChargerOutlet): Task[ChargerOutlet] =
     (for {
@@ -45,9 +45,12 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
 
-  def setChargingRequested(pk: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] =
+  override def setChargingRequested(outletId: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] =
     (for {
-      data   <- getByPK(pk, rfidTagAnd(rfidTag, $("state") === OutletDeviceState.CablePlugged.entryName))
+      data <- getByPK(
+               outletId,
+               $("rfidTag") === rfidTag && $("state") === OutletDeviceState.CablePlugged.entryName
+             )
       update <- ZIO.succeed(data.copy(state = OutletDeviceState.ChargingRequested))
       _      <- putByPK(update)
     } yield update)
@@ -64,7 +67,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     (for {
       data <- getByPK(
                status.outletId,
-               rfidTagAnd(status.recentSession.rfidTag, $("state") === OutletDeviceState.Charging.entryName)
+               $("rfidTag") === status.recentSession.rfidTag && $("state") === OutletDeviceState.Charging.entryName
              )
       update <- ZIO.succeed(
                  data.copy(
@@ -78,8 +81,10 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     (for {
       data <- getByPK(
                status.outletId,
-               rfidTagAnd(status.recentSession.rfidTag, $("state") === OutletDeviceState.Charging.entryName)
+               $("rfidTag") === status.recentSession.rfidTag && $("state") === OutletDeviceState.Charging.entryName
              )
+      // it doesnt fail if data is "no data found"
+
       update <- ZIO.succeed(
                  data.copy(
                    state            = OutletDeviceState.CablePlugged,

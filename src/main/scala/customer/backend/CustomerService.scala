@@ -1,15 +1,17 @@
 package customer.backend
 
 import customer.backend.types.customer.Customer
-import zio.IO
+import zio.Task
 import zio.dynamodb.Item
 
 import java.util.UUID
 
 trait CustomerService {
-  def getById(customerId: UUID): IO[Throwable, Customer]
+  def getById(customerId: UUID): Task[Customer]
 
-  def register(customer: Customer): IO[Throwable, Customer]
+  def getRfidTag(customerId: UUID): Task[String]
 
-  def update(customerId: UUID, params: Customer): IO[Throwable, Option[Item]]
+  def register(customer: Customer): Task[Customer]
+
+  def update(customerId: UUID, params: Customer): Task[Option[Item]]
 }

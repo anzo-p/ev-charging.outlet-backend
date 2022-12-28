@@ -2,17 +2,23 @@ package customer.backend.services
 
 import customer.backend.CustomerService
 import customer.backend.types.customer.Customer
+import shared.db.DynamoDBPrimitives
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
+import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
 
-final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends CustomerService {
-  import DynamoDBCustomerService.tableResource
+final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends CustomerService with DynamoDBPrimitives[Customer] {
 
-  override def getById(customerId: UUID): IO[Throwable, Customer] =
+  val tableResource = "ev-outlet-app.customer.table"
+  val primaryKey    = "customerId"
+
+  override val schema: Schema[Customer] = DeriveSchema.gen[Customer]
+
+  override def getById(customerId: UUID): Task[Customer] =
     (for {
       query <- get[Customer](tableResource, PrimaryKey("customerId" -> customerId.toString)).execute
     } yield query)
@@ -22,14 +28,20 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
       }
       .provideLayer(ZLayer.succeed(executor))
 
-  override def register(customer: Customer): IO[Throwable, Customer] =
+  override def getRfidTag(customerId: UUID): Task[String] =
+    (for {
+      data <- getByPK(customerId)
+    } yield data.rfidTag)
+      .provideLayer(ZLayer.succeed(executor))
+
+  override def register(customer: Customer): Task[Customer] =
     (for {
       insert <- ZIO.succeed(customer)
       _      <- put(tableResource, insert).execute
     } yield insert)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def update(customerId: UUID, customer: Customer): IO[Throwable, Option[Item]] =
+  override def update(customerId: UUID, customer: Customer): Task[Option[Item]] =
     updateItem(tableResource, PrimaryKey("customerId" -> customerId.toString)) {
       $("address").set(customer.address) +
         $("email").set(customer.email) +
@@ -39,8 +51,6 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
 }
 
 object DynamoDBCustomerService {
-
-  val tableResource = "ev-outlet-app.customer.table"
 
   val live: ZLayer[DynamoDBExecutor, Nothing, CustomerService] =
     ZLayer.fromFunction(DynamoDBCustomerService.apply _)

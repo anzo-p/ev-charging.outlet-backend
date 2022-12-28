@@ -21,7 +21,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
       case req @ Method.POST -> !! / "chargers" / "register" =>
         (for {
           body <- req.body.asString.mapError(serverError)
-          dto  <- body.fromJson[CreateChargerOutletDto].orFail(invalidPayload)
+          dto  <- body.fromJson[ChargerOutletDto].orFail(invalidPayload)
           // validate payload
           outlet = dto.toModel
           _ <- service.register(outlet).mapError(serverError)
@@ -30,7 +30,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
             Status.Created,
             defaultHeaders,
             Body.fromString {
-              CreateChargerOutletDto.fromModel(outlet).toJson
+              ChargerOutletDto.fromModel(outlet).toJson
             }
           )
         }).respond
@@ -38,8 +38,10 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
       case Method.GET -> !! / "chargers" / "outlet" / outlet / "customer" / rfid / "start" =>
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
-          initData <- service.setChargingRequested(outletId, rfid).mapError(serverError)
-          _        <- streamWriter.put(OutletStatusEvent.fromOutlet(initData)).mapError(serverError)
+          initData <- service
+                       .setChargingRequested(outletId, rfid)
+                       .mapError(serverError) // should not set doubled, but response "already active session"
+          _ <- streamWriter.put(OutletStatusEvent.fromOutlet(initData)).mapError(serverError)
           // customer.backend will consume, check user, then emit ok to us
           // our consumer expects ack and calls service.beginCharging(..) and zio.http client to post respective message to aws api gateway
         } yield {
@@ -79,32 +81,3 @@ object OutletRoutes {
   val live: ZLayer[ChargerOutletService with StreamWriter, Nothing, OutletRoutes] =
     ZLayer.fromFunction(OutletRoutes.apply _)
 }
-
-/*
-  serve rest api    server to listen    to aws api gateway websocket posts from client
-  use   simple http client to post back to aws api gateway websocket       to   client
-
-
-  - post - device has detected start charging { device id, consumer token details }
-    - send to kinesis: device detected start charging from device id by consumer token
-
-  - post - device has detected stop charging { device id, consumer token details }
-    - send to kinesis: device detected stop charging at device id
-
-  read kinesis
-  - consumer backend has requested device id to start charging
-    - push to device
-    - ack to consumer backend
-    - send to kinesis: billing - initiate charging session
-
-  - consumer backend has requests device id to stop charging
-    - push to device
-    - ack to consumer backend
-    - send to kinesis: completed charging session data
-
-  persist in dynamodb
-  - chargers
-    - status
-    - history aggregated to a set of chargers, paginated
-
- */
