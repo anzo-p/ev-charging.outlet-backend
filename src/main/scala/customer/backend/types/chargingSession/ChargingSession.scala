@@ -67,8 +67,8 @@ final case class ChargingSessionUpdate(
 
 object ChargingSessionUpdate extends DateTimeSchemaImplicits {
 
-  implicit lazy val schema: Schema[ChargingSessionUpdate] =
-    DeriveSchema.gen[ChargingSessionUpdate]
+  //implicit lazy val schema: Schema[ChargingSessionUpdate] =
+  //  DeriveSchema.gen[ChargingSessionUpdate]
 
   def fromEvent(
       event: OutletStatusEvent,
@@ -88,18 +88,6 @@ object ChargingSessionUpdate extends DateTimeSchemaImplicits {
 }
 
 /*
-  http
-  - start
-    - creates a ChargingSession and stores in DB
-    - creates an OutletStatusEvent with ChargingRequested and writes to kinesis
-
-  - stop
-    - updates ChargingSession to completed in DB
-    - creates an OutletStatusEvent with StoppingRequested and writes to kinesis
-
-  - get current session report
-    - fetch and respond ChargingSession with whatever data it has
-
   kinesis consumer
   - ack to start - same as intermediate report
     - updates ChargingSession to Charging in DB

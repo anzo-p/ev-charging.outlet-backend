@@ -5,7 +5,7 @@ import customer.backend.http.dto.{ChargingSessionDto, CreateChargingSessionDto}
 import customer.backend.{ChargingService, CustomerService}
 import shared.http.BaseRoutes
 import shared.types.outletStatus.OutletStatusEvent
-import shared.validation.InputValidation.validateUUID
+import shared.validation.InputValidation._
 import zhttp.http._
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
@@ -25,6 +25,22 @@ final case class ChargingRequestRoutes(customerService: CustomerService, chargin
             defaultHeaders,
             Body.fromString {
               history.map(ChargingSessionDto.fromModel).toJson
+            }
+          )
+        }).respond
+
+      case Method.GET -> !! / "chargers" / "customer" / customer / "session" / session =>
+        (for {
+          urlVars <- (validateUUID(customer, "customer") <*> validateUUID(session, "session")).combineErrors.orFail(unProcessableEntity)
+          (customerId, sessionId) = urlVars
+          _       <- customerService.getRfidTag(customerId).orElseFail(invalidPayload("this customer doesn't exist"))
+          session <- chargingService.getSession(sessionId).mapError(serverError)
+        } yield {
+          Response(
+            Status.Ok,
+            defaultHeaders,
+            Body.fromString {
+              ChargingSessionDto.fromModel(session).toJson
             }
           )
         }).respond

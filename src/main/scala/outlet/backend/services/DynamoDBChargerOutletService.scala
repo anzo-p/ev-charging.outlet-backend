@@ -1,8 +1,8 @@
 package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
-import outlet.backend.types.chargerOutlet.ChargerOutlet
-import outlet.backend.types.chargerOutlet.ChargerOutlet.mayTransitionTo
+import outlet.backend.types.ChargerOutlet
+import ChargerOutlet.mayTransitionTo
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState

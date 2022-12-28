@@ -12,4 +12,6 @@ trait ChargingService {
   def setStopRequested(sessionId: UUID): Task[Unit]
 
   def getHistory(customerId: UUID): Task[List[ChargingSession]]
+
+  def getSession(sessionId: UUID): Task[ChargingSession]
 }

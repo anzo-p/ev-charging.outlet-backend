@@ -1,4 +1,4 @@
-package outlet.backend.types.chargerOutlet
+package outlet.backend.types
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState

@@ -38,7 +38,7 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
                      .count(_.state.in(Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging))))
     } yield result
 
-  override def initialize(session: ChargingSession): ZIO[Any, Throwable, Unit] =
+  override def initialize(session: ChargingSession): Task[Unit] =
     (for {
       already <- getActiveSessions(session.customerId)
       _       <- ZIO.fromEither(Either.cond(already == 0, (), new Error("customer already has active session")))
@@ -46,11 +46,17 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
 
-  override def setStopRequested(sessionId: UUID): ZIO[Any, Throwable, Unit] =
+  override def setStopRequested(sessionId: UUID): Task[Unit] =
     (for {
       data <- getByPK(sessionId).filterOrDie(mayTransitionTo(OutletDeviceState.Charging))(new Error("no data found"))
       _    <- putByPK(data.copy(state = OutletDeviceState.StoppingRequested))
     } yield ())
+      .provideLayer(ZLayer.succeed(executor))
+
+  override def getSession(sessionId: UUID): Task[ChargingSession] =
+    (for {
+      session <- getByPK(sessionId)
+    } yield session)
       .provideLayer(ZLayer.succeed(executor))
 
   override def getHistory(customerId: UUID): Task[List[ChargingSession]] =

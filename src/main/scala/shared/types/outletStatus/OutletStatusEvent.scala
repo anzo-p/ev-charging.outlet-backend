@@ -1,7 +1,7 @@
 package shared.types.outletStatus
 
 import outlet.backend.http.dto.CreateIntermediateReport
-import outlet.backend.types.chargerOutlet.ChargerOutlet
+import outlet.backend.types.ChargerOutlet
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 
 import java.util.UUID

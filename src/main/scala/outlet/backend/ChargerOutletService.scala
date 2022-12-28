@@ -1,6 +1,6 @@
 package outlet.backend
 
-import outlet.backend.types.chargerOutlet.ChargerOutlet
+import outlet.backend.types.ChargerOutlet
 import shared.types.outletStatus.OutletStatusEvent
 import zio.Task
 
