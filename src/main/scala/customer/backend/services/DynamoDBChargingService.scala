@@ -2,13 +2,13 @@ package customer.backend.services
 
 import customer.backend.ChargingService
 import customer.backend.types.chargingSession.ChargingSession
+import customer.backend.types.chargingSession.ChargingSession.mayTransitionTo
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.PartitionKeyExpression.PartitionKey
-import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -24,15 +24,18 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
 
   override def schema: Schema[ChargingSession] = DeriveSchema.gen[ChargingSession]
 
-  private def getActiveSessions(customerId: UUID): ZIO[DynamoDBExecutor, Throwable, Long] =
+  private def getActiveSessions(customerId: UUID): ZIO[DynamoDBExecutor, Throwable, Int] =
     for {
       query <- queryAll[ChargingSession](tableResource)
                 .indexName("customerId-on-charging-session-index")
                 .whereKey(PartitionKey("customerId") === customerId.toString)
-                .filter($("sessionState") in Set(OutletDeviceState.ChargingRequested.entryName, OutletDeviceState.Charging.entryName)) // rather collect them all and filter in scala
                 .execute
 
-      result <- query.runCount
+      result <- query
+                 .runCollect
+                 .map(
+                   _.toList
+                     .count(_.state.in(Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging))))
     } yield result
 
   override def initialize(session: ChargingSession): ZIO[Any, Throwable, Unit] =
@@ -45,8 +48,8 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
 
   override def setStopRequested(sessionId: UUID): ZIO[Any, Throwable, Unit] =
     (for {
-      data <- getByPK(sessionId, $("state") === OutletDeviceState.Charging.entryName)
-      _    <- putByPK(data.copy(sessionState = OutletDeviceState.StoppingRequested))
+      data <- getByPK(sessionId).filterOrDie(mayTransitionTo(OutletDeviceState.Charging))(new Error("no data found"))
+      _    <- putByPK(data.copy(state = OutletDeviceState.StoppingRequested))
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
 
@@ -69,9 +72,3 @@ object DynamoDBChargingService {
   val live: ZLayer[DynamoDBExecutor, Nothing, ChargingService] =
     ZLayer.fromFunction(DynamoDBChargingService.apply _)
 }
-
-/*
-  dynamodb
-  - schema - since we generalized concepts we had top provide schema all the way down, now it seems schemas must be defined at service, not in the models
-  - unsafe operations - many unexpected things can go wrongh., this time our field names collided with aws reseverd words, bring out a list dn filter in scala
- */

@@ -2,6 +2,7 @@ package outlet.backend.types.chargerOutlet
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState
+import shared.types.enums.OutletDeviceState.isPreStateTo
 import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
@@ -47,4 +48,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       totalChargingEvents   = 0L,
       totalPowerConsumption = 0.0
     )
+
+  def mayTransitionTo(nextState: OutletDeviceState): ChargerOutlet => Boolean =
+    _.state.in(isPreStateTo(nextState))
 }

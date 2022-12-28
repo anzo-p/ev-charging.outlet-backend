@@ -13,7 +13,8 @@ final case class Customer(
   )
 
 object Customer {
-  implicit lazy val schema: Schema[Customer] = DeriveSchema.gen[Customer]
+  implicit lazy val schema: Schema[Customer] =
+    DeriveSchema.gen[Customer]
 
   def apply(address: String, email: String, paymentMethod: String): Customer =
     Customer(

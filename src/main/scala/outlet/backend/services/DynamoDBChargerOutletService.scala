@@ -2,13 +2,13 @@ package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.types.chargerOutlet.ChargerOutlet
+import outlet.backend.types.chargerOutlet.ChargerOutlet.mayTransitionTo
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState
 import shared.types.outletStatus.OutletStatusEvent
 import zio._
 import zio.dynamodb.DynamoDBQuery._
-import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -24,6 +24,18 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   override def schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
+  private def checkAndSetState(
+      outletId: UUID,
+      nextState: OutletDeviceState,
+      yieldResult: Boolean = false
+    ): ZIO[Any, Throwable, Option[ChargerOutlet]] =
+    (for {
+      data    <- getByPK(outletId).filterOrDie(mayTransitionTo(nextState))(new Error("no data found"))
+      updated <- ZIO.succeed(data.copy(state = nextState))
+      _       <- putByPK(updated)
+    } yield if (yieldResult) Some(updated) else None)
+      .provideLayer(ZLayer.succeed(executor))
+
   override def register(outlet: ChargerOutlet): Task[ChargerOutlet] =
     (for {
       inserted <- ZIO.succeed(outlet)
@@ -32,58 +44,38 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       .provideLayer(ZLayer.succeed(executor))
 
   override def setAvailable(outletId: UUID): Task[Unit] =
-    (for {
-      data <- getByPK(outletId, $("state") in Set(OutletDeviceState.CablePlugged.entryName, OutletDeviceState.Broken.entryName))
-      _    <- putByPK(data.copy(state = OutletDeviceState.Available))
-    } yield ())
-      .provideLayer(ZLayer.succeed(executor))
+    checkAndSetState(outletId, OutletDeviceState.Available).unit
 
   override def setCablePlugged(outletId: UUID): Task[Unit] =
-    (for {
-      data <- getByPK(outletId, $("state") === OutletDeviceState.Available.entryName)
-      _    <- putByPK(data.copy(state = OutletDeviceState.CablePlugged))
-    } yield ())
-      .provideLayer(ZLayer.succeed(executor))
+    checkAndSetState(outletId, OutletDeviceState.CablePlugged).unit
 
   override def setChargingRequested(outletId: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] =
-    (for {
-      data <- getByPK(
-               outletId,
-               $("rfidTag") === rfidTag && $("state") === OutletDeviceState.CablePlugged.entryName
-             )
-      update <- ZIO.succeed(data.copy(state = OutletDeviceState.ChargingRequested))
-      _      <- putByPK(update)
-    } yield update)
-      .provideLayer(ZLayer.succeed(executor))
+    checkAndSetState(outletId, OutletDeviceState.ChargingRequested, yieldResult = true).flatMap {
+      case None =>
+        ZIO.fail(new Error("unsuccessful update"))
+      case Some(outlet) =>
+        ZIO.succeed(outlet)
+    }
 
   override def beginCharging(outletId: UUID): Task[Unit] =
-    (for {
-      data <- getByPK(outletId, $("state") === OutletDeviceState.ChargingRequested.entryName)
-      _    <- putByPK(data.copy(state = OutletDeviceState.Charging))
-    } yield ())
-      .provideLayer(ZLayer.succeed(executor))
+    checkAndSetState(outletId, OutletDeviceState.Charging).unit
 
   override def aggregateConsumption(status: OutletStatusEvent): Task[ChargerOutlet] =
     (for {
-      data <- getByPK(
-               status.outletId,
-               $("rfidTag") === status.recentSession.rfidTag && $("state") === OutletDeviceState.Charging.entryName
-             )
+      data <- getByPK(status.outletId).filterOrDie(mayTransitionTo(OutletDeviceState.Charging))(new Error("no data found"))
+
       update <- ZIO.succeed(
                  data.copy(
                    endTime          = status.recentSession.periodEnd,
                    powerConsumption = data.powerConsumption + status.recentSession.powerConsumption))
+
       _ <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
 
   override def stopCharging(status: OutletStatusEvent): Task[ChargerOutlet] =
     (for {
-      data <- getByPK(
-               status.outletId,
-               $("rfidTag") === status.recentSession.rfidTag && $("state") === OutletDeviceState.Charging.entryName
-             )
-      // it doesnt fail if data is "no data found"
+      data <- getByPK(status.outletId).filterOrDie(mayTransitionTo(OutletDeviceState.CablePlugged))(new Error("no data found"))
 
       update <- ZIO.succeed(
                  data.copy(
@@ -91,6 +83,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
                    endTime          = status.recentSession.periodEnd,
                    powerConsumption = data.powerConsumption + status.recentSession.powerConsumption
                  ))
+
       _ <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))

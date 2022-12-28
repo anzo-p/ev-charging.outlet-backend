@@ -1,6 +1,7 @@
 package customer.backend.types.chargingSession
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
+import shared.types.enums.OutletDeviceState.isPreStateTo
 import shared.types.enums.{OutletDeviceState, PurchaseChannel}
 import shared.types.outletStatus.OutletStatusEvent
 import zio.schema.{DeriveSchema, Schema}
@@ -12,7 +13,7 @@ final case class ChargingSession(
     customerId: UUID,
     rfidTag: String,
     outletId: UUID,
-    sessionState: OutletDeviceState,
+    state: OutletDeviceState,
     purchaseChannel: PurchaseChannel,
     startTime: Option[java.time.OffsetDateTime],
     endTime: Option[java.time.OffsetDateTime],
@@ -30,7 +31,7 @@ object ChargingSession extends DateTimeSchemaImplicits {
       customerId       = customerId,
       rfidTag          = "",
       outletId         = outletId,
-      sessionState     = OutletDeviceState.ChargingRequested,
+      state            = OutletDeviceState.ChargingRequested,
       purchaseChannel  = purchaseChannel,
       startTime        = None,
       endTime          = None,
@@ -43,12 +44,15 @@ object ChargingSession extends DateTimeSchemaImplicits {
       customerId       = customerId,
       rfidTag          = event.recentSession.rfidTag,
       outletId         = event.outletId,
-      sessionState     = event.state,
+      state            = event.state,
       purchaseChannel  = PurchaseChannel.OutletDevice,
       startTime        = event.recentSession.periodStart,
       endTime          = event.recentSession.periodEnd,
       powerConsumption = Some(event.recentSession.powerConsumption)
     )
+
+  def mayTransitionTo(nextState: OutletDeviceState): ChargingSession => Boolean =
+    _.state.in(isPreStateTo(nextState))
 }
 
 final case class ChargingSessionUpdate(
