@@ -2,7 +2,6 @@ package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.types.ChargerOutlet
-import ChargerOutlet.mayTransitionTo
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState
@@ -27,17 +26,40 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
   private def cannotTransitionTo(targetState: OutletDeviceState): String =
     s"outlet not in (one of) state(s) ${OutletDeviceState.getPreStatesTo(targetState).mkString("[ ", " ,", " ]")}"
 
+  private def getByOutletIdAndRfidTag(outletId: UUID, rfidTag: Option[String]): ZIO[DynamoDBExecutor, Throwable, ChargerOutlet] =
+    for {
+      result <- getByPK(outletId).filterOrFail(_.rfidTag == rfidTag.getOrElse(true))(
+                 new Error(s"no data found for outletId: $outletId and rfidTag: $rfidTag"))
+    } yield result
+
   private def checkAndSetState(
       outletId: UUID,
+      rfidTag: Option[String],
       nextState: OutletDeviceState,
-      message: String      = "no data found",
+      message: String,
       yieldResult: Boolean = false
     ): ZIO[Any, Throwable, Option[ChargerOutlet]] =
     (for {
-      data    <- getByPK(outletId).filterOrFail(mayTransitionTo(nextState))(new Error(message))
-      updated <- ZIO.succeed(data.copy(state = nextState))
-      _       <- putByPK(updated)
+      data     <- getByOutletIdAndRfidTag(outletId, rfidTag)
+      filtered <- ZIO.succeed(data).filterOrFail(_.mayTransitionTo(nextState))(new Error(message))
+      updated  <- ZIO.succeed(filtered.copy(state = nextState))
+      _        <- putByPK(updated)
     } yield if (yieldResult) Some(updated) else None)
+      .provideLayer(ZLayer.succeed(executor))
+
+  private def setOutletStateAggregatesReturningOrFail(event: OutletStatusEvent, targetState: OutletDeviceState): Task[ChargerOutlet] =
+    (for {
+      data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
+
+      update <- ZIO.succeed(
+                 data.copy(
+                   state            = targetState,
+                   endTime          = event.recentSession.periodEnd,
+                   powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
+                 ))
+
+      _ <- putByPK(update)
+    } yield update)
       .provideLayer(ZLayer.succeed(executor))
 
   override def register(outlet: ChargerOutlet): Task[ChargerOutlet] =
@@ -47,72 +69,30 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     } yield inserted)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def setAvailable(outletId: UUID): Task[Unit] =
-    checkAndSetState(
-      outletId,
-      OutletDeviceState.Available,
-      cannotTransitionTo(OutletDeviceState.Available)
-    ).unit
+  override def setOutletStateUnit(outletId: UUID, rfidTag: Option[String], targetState: OutletDeviceState): ZIO[Any, Throwable, Unit] =
+    checkAndSetState(outletId, rfidTag, targetState, cannotTransitionTo(targetState)).unit
 
-  override def setCablePlugged(outletId: UUID): Task[Unit] =
-    checkAndSetState(
-      outletId,
-      OutletDeviceState.CablePlugged,
-      cannotTransitionTo(OutletDeviceState.CablePlugged)
-    ).unit
+  private def setOutletStateReturningOrFail(
+      outletId: UUID,
+      rfidTag: String,
+      targetState: OutletDeviceState
+    ): ZIO[Any, Throwable, ChargerOutlet] =
+    checkAndSetState(outletId, Some(rfidTag), targetState, cannotTransitionTo(targetState))
+      .flatMap {
+        case None =>
+          ZIO.fail(new Error("unsuccessful update"))
+        case Some(outlet) =>
+          ZIO.succeed(outlet)
+      }
 
-  override def setChargingRequested(outletId: UUID, rfidTag: String): ZIO[Any, Throwable, ChargerOutlet] = {
-    val targetState = OutletDeviceState.Charging
+  override def setChargingRequested(outletId: UUID, rfidTag: String): Task[ChargerOutlet] =
+    setOutletStateReturningOrFail(outletId, rfidTag, OutletDeviceState.ChargingRequested)
 
-    checkAndSetState(
-      outletId,
-      targetState,
-      cannotTransitionTo(targetState),
-      yieldResult = true
-    ).flatMap {
-      case None =>
-        ZIO.fail(new Error("unsuccessful update"))
-      case Some(outlet) =>
-        ZIO.succeed(outlet)
-    }
-  }
+  override def aggregateConsumption(event: OutletStatusEvent): Task[ChargerOutlet] =
+    setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.Charging)
 
-  override def beginCharging(outletId: UUID): Task[Unit] =
-    checkAndSetState(outletId, OutletDeviceState.Charging).unit
-
-  override def aggregateConsumption(status: OutletStatusEvent): Task[ChargerOutlet] = {
-    val targetState = OutletDeviceState.Charging
-
-    (for {
-      data <- getByPK(status.outletId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-
-      update <- ZIO.succeed(
-                 data.copy(
-                   endTime          = status.recentSession.periodEnd,
-                   powerConsumption = data.powerConsumption + status.recentSession.powerConsumption))
-
-      _ <- putByPK(update)
-    } yield update)
-      .provideLayer(ZLayer.succeed(executor))
-  }
-
-  override def stopCharging(status: OutletStatusEvent): Task[ChargerOutlet] = {
-    val targetState = OutletDeviceState.CablePlugged
-
-    (for {
-      data <- getByPK(status.outletId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-
-      update <- ZIO.succeed(
-                 data.copy(
-                   state            = OutletDeviceState.CablePlugged,
-                   endTime          = status.recentSession.periodEnd,
-                   powerConsumption = data.powerConsumption + status.recentSession.powerConsumption
-                 ))
-
-      _ <- putByPK(update)
-    } yield update)
-      .provideLayer(ZLayer.succeed(executor))
-  }
+  override def stopCharging(event: OutletStatusEvent): Task[ChargerOutlet] =
+    setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.CablePlugged)
 }
 
 object DynamoDBChargerOutletService {

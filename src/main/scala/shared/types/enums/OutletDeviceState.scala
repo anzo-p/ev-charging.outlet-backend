@@ -29,17 +29,19 @@ object OutletDeviceState extends Enum[OutletDeviceState] {
   case object Charging extends OutletDeviceState with AppState
   case object StoppingRequested extends OutletDeviceState with AppState
   case object Finished extends OutletDeviceState with AppState
+  case object CableRemoved extends OutletDeviceState
 
   private object Transitions {
 
     val allowedTransitions: Map[OutletDeviceState, Seq[OutletDeviceState]] =
       Map(
         Available         -> Seq(CablePlugged),
-        CablePlugged      -> Seq(Available, Charging, ChargingRequested),
-        ChargingRequested -> Seq(CablePlugged, Charging),
-        Charging          -> Seq(Charging, CablePlugged, StoppingRequested, Finished),
-        StoppingRequested -> Seq(CablePlugged, Finished),
-        Finished          -> Seq(Available)
+        CablePlugged      -> Seq(ChargingRequested, Charging, CableRemoved),
+        ChargingRequested -> Seq(Charging, CableRemoved),
+        Charging          -> Seq(Charging, StoppingRequested, Finished, CableRemoved),
+        StoppingRequested -> Seq(Finished, CableRemoved),
+        Finished          -> Seq(CableRemoved),
+        CableRemoved      -> Seq(Available)
       )
 
     val preStates: mutable.HashMap[OutletDeviceState, Seq[OutletDeviceState]] = mutable.HashMap()

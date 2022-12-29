@@ -1,8 +1,8 @@
 package outlet.backend.types
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
-import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.enums.OutletDeviceState.getPreStatesTo
+import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.outletStatus.{EventSessionData, OutletStatusEvent}
 import zio.schema.{DeriveSchema, Schema}
 
@@ -25,6 +25,12 @@ final case class ChargerOutlet(
   )
 
 object ChargerOutlet extends DateTimeSchemaImplicits {
+
+  implicit class ChargerOutletOps(outlet: ChargerOutlet) {
+
+    def mayTransitionTo(targetState: OutletDeviceState): Boolean =
+      outlet.state.in(getPreStatesTo(targetState))
+  }
 
   implicit lazy val schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
@@ -64,7 +70,4 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
         powerConsumption = outlet.powerConsumption
       )
     )
-
-  def mayTransitionTo(nextState: OutletDeviceState): ChargerOutlet => Boolean =
-    _.state.in(getPreStatesTo(nextState))
 }
