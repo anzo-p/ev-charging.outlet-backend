@@ -39,7 +39,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
       case Method.GET -> !! / "chargers" / "outlet" / outlet / "customer" / rfid / "start" =>
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
-          initData <- service.setChargingRequested(outletId, rfid).mapError(th => badRequest(th.getMessage))
+          initData <- service.setChargingRequested(OutletStatusEvent.deviceStart(outletId, rfid)).mapError(th => badRequest(th.getMessage))
           _        <- streamWriter.put(ChargerOutlet.toOutletStatus(initData)).mapError(serverError)
           // customer.backend will consume, check user, then emit ok to us
           // our consumer expects ack and calls service.beginCharging(..) and zio.http client to post respective message to aws api gateway

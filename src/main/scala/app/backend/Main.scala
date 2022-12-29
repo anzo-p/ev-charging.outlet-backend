@@ -1,6 +1,6 @@
 package app.backend
 
-import app.backend.events.{OutletEventConsumer, OutletStatusProducer}
+import app.backend.events.{AppEndOutletEventConsumer, AppEndOutletEventProducer}
 import app.backend.http.{AppServer, ChargingRoutes, CustomerRoutes}
 import app.backend.services.{DynamoDBChargingService, DynamoDBCustomerService}
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
@@ -14,7 +14,7 @@ import zio.dynamodb.DynamoDBExecutor
 object Main extends ZIOAppDefault {
 
   val program =
-    ZIO.serviceWithZIO[AppServer](_.start).zipPar(ZIO.serviceWithZIO[OutletEventConsumer](_.start))
+    ZIO.serviceWithZIO[AppServer](_.start).zipPar(ZIO.serviceWithZIO[AppEndOutletEventConsumer](_.start))
 
   override def run: URIO[Any, ExitCode] =
     program
@@ -30,9 +30,9 @@ object Main extends ZIOAppDefault {
         DynamoDbLeaseRepository.live,
         Kinesis.live,
         NettyHttpClient.default,
-        OutletEventConsumer.live,
-        OutletStatusProducer.live,
-        OutletStatusProducer.make,
+        AppEndOutletEventConsumer.live,
+        AppEndOutletEventProducer.live,
+        AppEndOutletEventProducer.make,
         Scope.default
       )
       .exitCode

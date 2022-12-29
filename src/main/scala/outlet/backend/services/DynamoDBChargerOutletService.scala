@@ -2,6 +2,7 @@ package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.types.ChargerOutlet
+import outlet.backend.types.ChargerOutlet.Ops._
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState
@@ -23,12 +24,10 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   override def schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
-  private def cannotTransitionTo(targetState: OutletDeviceState): String =
-    s"outlet not in (one of) state(s) ${OutletDeviceState.getPreStatesTo(targetState).mkString("[ ", " ,", " ]")}"
-
   private def getByOutletIdAndRfidTag(outletId: UUID, rfidTag: Option[String]): ZIO[DynamoDBExecutor, Throwable, ChargerOutlet] =
     for {
-      result <- getByPK(outletId).filterOrFail(_.rfidTag == rfidTag.getOrElse(true))(
+      _ <- ZIO.succeed(println(s"outletId: $outletId and rfidTag: $rfidTag"))
+      result <- getByPK(outletId).filterOrFail(r => r.rfidTag == rfidTag.getOrElse(r.rfidTag))(
                  new Error(s"no data found for outletId: $outletId and rfidTag: $rfidTag"))
     } yield result
 
@@ -49,11 +48,13 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   private def setOutletStateAggregatesReturningOrFail(event: OutletStatusEvent, targetState: OutletDeviceState): Task[ChargerOutlet] =
     (for {
+      _    <- ZIO.succeed(println(s"$event $targetState"))
       data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
                  data.copy(
                    state            = targetState,
+                   startTime        = event.recentSession.periodStart,
                    endTime          = event.recentSession.periodEnd,
                    powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
                  ))
@@ -85,8 +86,27 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
           ZIO.succeed(outlet)
       }
 
-  override def setChargingRequested(outletId: UUID, rfidTag: String): Task[ChargerOutlet] =
-    setOutletStateReturningOrFail(outletId, rfidTag, OutletDeviceState.ChargingRequested)
+  override def setChargingRequested(event: OutletStatusEvent): Task[ChargerOutlet] = {
+    val targetState = event.state
+    (for {
+      data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
+
+      update <- ZIO.succeed(
+                 data.copy(
+                   state            = targetState,
+                   rfidTag          = event.recentSession.rfidTag,
+                   startTime        = event.recentSession.periodStart,
+                   endTime          = event.recentSession.periodEnd,
+                   powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
+                 ))
+
+      _ <- putByPK(update)
+    } yield update)
+      .provideLayer(ZLayer.succeed(executor))
+  }
+
+  override def setCharging(outletId: UUID, rfidTag: String): Task[ChargerOutlet] =
+    setOutletStateReturningOrFail(outletId, rfidTag, OutletDeviceState.Charging)
 
   override def aggregateConsumption(event: OutletStatusEvent): Task[ChargerOutlet] =
     setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.Charging)

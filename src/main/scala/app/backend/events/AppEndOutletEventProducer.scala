@@ -1,4 +1,4 @@
-package outlet.backend.events
+package app.backend.events
 
 import nl.vroste.zio.kinesis.client.{Producer, ProducerRecord}
 import shared.types.outletStatus.{OutletStatusEvent, OutletStatusEventSerDes}
@@ -6,15 +6,15 @@ import zio._
 import zio.aws.kinesis.Kinesis
 
 sealed trait StreamWriter {
-  def put(event: OutletStatusEvent): IO[Throwable, Unit]
+  def put(event: OutletStatusEvent): Task[Unit]
 }
 
-final case class OutletStatusProducer(producer: Producer[OutletStatusEvent]) extends StreamWriter {
+final case class AppEndOutletEventProducer(producer: Producer[OutletStatusEvent]) extends StreamWriter {
 
-  private def put(record: ProducerRecord[OutletStatusEvent]): IO[Throwable, Unit] =
+  private def put(record: ProducerRecord[OutletStatusEvent]): Task[Unit] =
     producer.produce(record).unit
 
-  override def put(event: OutletStatusEvent): IO[Throwable, Unit] =
+  override def put(event: OutletStatusEvent): Task[Unit] =
     put(
       ProducerRecord(
         "123",
@@ -23,13 +23,13 @@ final case class OutletStatusProducer(producer: Producer[OutletStatusEvent]) ext
     )
 }
 
-object OutletStatusProducer {
+object AppEndOutletEventProducer {
 
   val make: ZLayer[Scope with Any with Kinesis, Throwable, Producer[OutletStatusEvent]] =
     ZLayer.fromZIO {
       Producer.make("ev-outlet-app.outlet-events.stream", OutletStatusEventSerDes.byteArray)
     }
 
-  val live: ZLayer[Producer[OutletStatusEvent], Nothing, StreamWriter] =
-    ZLayer.fromFunction(OutletStatusProducer.apply _)
+  val live: ZLayer[Producer[OutletStatusEvent], Nothing, AppEndOutletEventProducer] =
+    ZLayer.fromFunction(AppEndOutletEventProducer.apply _)
 }

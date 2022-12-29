@@ -26,12 +26,6 @@ final case class ChargerOutlet(
 
 object ChargerOutlet extends DateTimeSchemaImplicits {
 
-  implicit class ChargerOutletOps(outlet: ChargerOutlet) {
-
-    def mayTransitionTo(targetState: OutletDeviceState): Boolean =
-      outlet.state.in(getPreStatesTo(targetState))
-  }
-
   implicit lazy val schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
 
   def apply(
@@ -70,4 +64,15 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
         powerConsumption = outlet.powerConsumption
       )
     )
+
+  object Ops {
+    implicit class ChargerOutletOps(outlet: ChargerOutlet) {
+
+      def mayTransitionTo(targetState: OutletDeviceState): Boolean =
+        outlet.state.in(getPreStatesTo(targetState))
+    }
+
+    def cannotTransitionTo(targetState: OutletDeviceState): String =
+      s"outlet not in (one of) state(s) ${OutletDeviceState.getPreStatesTo(targetState).mkString("[ ", " ,", " ]")}"
+  }
 }

@@ -2,8 +2,8 @@ package app.backend.types.chargingSession
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.enums.OutletDeviceState.getPreStatesTo
-import shared.types.enums.{OutletDeviceState, PurchaseChannel}
-import shared.types.outletStatus.OutletStatusEvent
+import shared.types.enums.{OutletDeviceState, OutletStateRequester, PurchaseChannel}
+import shared.types.outletStatus.{EventSessionData, OutletStatusEvent}
 import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
@@ -18,7 +18,23 @@ final case class ChargingSession(
     startTime: Option[java.time.OffsetDateTime],
     endTime: Option[java.time.OffsetDateTime],
     powerConsumption: Option[Double]
-  )
+  ) {
+
+  def toEvent: OutletStatusEvent =
+    OutletStatusEvent(
+      requester = OutletStateRequester.Application,
+      outletId  = outletId,
+      eventTime = java.time.OffsetDateTime.now(),
+      state     = state,
+      recentSession = EventSessionData(
+        sessionId        = Some(sessionId),
+        rfidTag          = rfidTag,
+        periodStart      = startTime,
+        periodEnd        = endTime,
+        powerConsumption = powerConsumption.getOrElse(0.0)
+      )
+    )
+}
 
 object ChargingSession extends DateTimeSchemaImplicits {
 

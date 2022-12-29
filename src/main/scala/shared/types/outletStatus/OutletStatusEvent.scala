@@ -72,7 +72,7 @@ object OutletStatusEvent {
       requester = OutletStateRequester.OutletDevice,
       outletId  = outletId,
       eventTime = java.time.OffsetDateTime.now(),
-      state     = OutletDeviceState.StoppingRequested,
+      state     = OutletDeviceState.Finished,
       recentSession = EventSessionData(
         sessionId        = None,
         rfidTag          = rfidTag,

@@ -5,6 +5,7 @@ import app.backend.types.customer.Customer
 import shared.db.DynamoDBPrimitives
 import zio._
 import zio.dynamodb.DynamoDBQuery._
+import zio.dynamodb.PartitionKeyExpression.PartitionKey
 import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
 import zio.schema.{DeriveSchema, Schema}
@@ -18,10 +19,17 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
 
   override val schema: Schema[Customer] = DeriveSchema.gen[Customer]
 
+  override def register(customer: Customer): Task[Customer] =
+    (for {
+      insert <- ZIO.succeed(customer)
+      _      <- put(tableResource, insert).execute
+    } yield insert)
+      .provideLayer(ZLayer.succeed(executor))
+
   override def getById(customerId: UUID): Task[Customer] =
     (for {
-      query <- get[Customer](tableResource, PrimaryKey("customerId" -> customerId.toString)).execute
-    } yield query)
+      result <- get[Customer](tableResource, PrimaryKey("customerId" -> customerId.toString)).execute
+    } yield result)
       .flatMap {
         case Left(error)  => ZIO.fail(new Throwable(error))
         case Right(value) => ZIO.succeed(value)
@@ -30,15 +38,20 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
 
   override def getRfidTag(customerId: UUID): Task[String] =
     (for {
-      data <- getByPK(customerId)
-    } yield data.rfidTag)
+      result <- getByPK(customerId)
+    } yield result.rfidTag)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def register(customer: Customer): Task[Customer] =
+  override def getCustomerByRfidTag(rfidTag: String): Task[Option[UUID]] =
     (for {
-      insert <- ZIO.succeed(customer)
-      _      <- put(tableResource, insert).execute
-    } yield insert)
+      query <- queryAll[Customer](tableResource)
+                .indexName("rfidTag-on-customer-index")
+                .whereKey(PartitionKey("rfidTag") === rfidTag)
+                .execute
+
+      result <- query.map(_.customerId).runHead
+
+    } yield result)
       .provideLayer(ZLayer.succeed(executor))
 
   override def update(customerId: UUID, customer: Customer): Task[Option[Item]] =

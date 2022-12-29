@@ -25,11 +25,12 @@ object OutletDeviceState extends Enum[OutletDeviceState] {
   case object Available extends OutletDeviceState
   case object Broken extends OutletDeviceState
   case object CablePlugged extends OutletDeviceState
+  case object CableRemoved extends OutletDeviceState
+  case object Cancelled extends OutletDeviceState
   case object ChargingRequested extends OutletDeviceState with AppState
   case object Charging extends OutletDeviceState with AppState
   case object StoppingRequested extends OutletDeviceState with AppState
   case object Finished extends OutletDeviceState with AppState
-  case object CableRemoved extends OutletDeviceState
 
   private object Transitions {
 

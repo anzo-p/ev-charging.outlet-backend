@@ -13,7 +13,9 @@ trait ChargerOutletService {
 
   def setOutletStateUnit(outletId: UUID, rfidTag: Option[String], nextState: OutletDeviceState): ZIO[Any, Throwable, Unit]
 
-  def setChargingRequested(outletId: UUID, rfidToken: String): Task[ChargerOutlet]
+  def setChargingRequested(event: OutletStatusEvent): Task[ChargerOutlet]
+
+  def setCharging(outletId: UUID, rfidTag: String): Task[ChargerOutlet]
 
   def aggregateConsumption(status: OutletStatusEvent): Task[ChargerOutlet]
 
