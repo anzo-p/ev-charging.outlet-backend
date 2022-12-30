@@ -15,4 +15,8 @@
 target/
 project/project
 
+/infra/.terraform.lock.hcl
+/infra/terraform*
+/infra/.terraform/
+
 .env
