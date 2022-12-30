@@ -24,7 +24,7 @@ final case class AppEndOutletEventConsumer(
         for {
           _          <- ZIO.succeed(println("ChargingRequested")).unit
           _          <- ZIO.succeed(println(record.data)).unit
-          customerId <- customerService.getCustomerByRfidTag(record.data.recentSession.rfidTag)
+          customerId <- customerService.getCustomerIdByRfidTag(record.data.recentSession.rfidTag)
           // the fundamental question is, what should happen if we encounter a throwable?
           session <- ZIO.from(ChargingSession.fromEvent(customerId.get /*FIXME*/, record.data).copy(state = OutletDeviceState.Charging))
           _       <- chargingService.initialize(session)
@@ -35,13 +35,13 @@ final case class AppEndOutletEventConsumer(
       case OutletDeviceState.Charging =>
         for {
           _ <- ZIO.succeed(println("Charging")).unit
-          _ <- chargingService.aggregateSessionTotals(record.data, OutletDeviceState.Charging)
+          _ <- chargingService.aggregateSessionTotals(record.data.copy(state = OutletDeviceState.Charging))
         } yield ()
 
       case OutletDeviceState.Finished =>
         for {
           _ <- ZIO.succeed(println("StoppingRequested")).unit
-          _ <- chargingService.aggregateSessionTotals(record.data, OutletDeviceState.Finished)
+          _ <- chargingService.aggregateSessionTotals(record.data.copy(state = OutletDeviceState.Finished))
         } yield ()
 
       case state =>

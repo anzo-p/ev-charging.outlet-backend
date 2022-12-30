@@ -15,7 +15,7 @@ object OutletStatusEventSerDes {
     EventSessionDataProto(
       sessionId        = session.sessionId.getOrElse("").toString,
       rfidTag          = session.rfidTag,
-      periodStart      = session.periodStart.map(_.toProtobufTs),
+      periodStart      = Some(session.periodStart.toProtobufTs),
       periodEnd        = session.periodEnd.map(_.toProtobufTs),
       powerConsumption = session.powerConsumption
     )
@@ -24,7 +24,6 @@ object OutletStatusEventSerDes {
     OutletStatusEventProto(
       requester     = outlet.requester.entryName,
       outletId      = outlet.outletId.toString,
-      eventTime     = Some(outlet.eventTime.toProtobufTs),
       state         = outlet.state.entryName,
       recentSession = Some(toProtobuf(outlet.recentSession))
     )
@@ -33,7 +32,7 @@ object OutletStatusEventSerDes {
     EventSessionData(
       sessionId        = if (proto.sessionId == "") None else Some(UUID.fromString(proto.sessionId)),
       rfidTag          = proto.rfidTag,
-      periodStart      = proto.periodStart.map(_.toJavaOffsetDateTime),
+      periodStart      = proto.periodStart.map(_.toJavaOffsetDateTime).get, // scalapb makes it an option
       periodEnd        = proto.periodEnd.map(_.toJavaOffsetDateTime),
       powerConsumption = proto.powerConsumption
     )
@@ -42,7 +41,6 @@ object OutletStatusEventSerDes {
     OutletStatusEvent(
       requester     = OutletStateRequester.withName(proto.requester),
       outletId      = UUID.fromString(proto.outletId),
-      eventTime     = proto.eventTime.get.toJavaOffsetDateTime,
       state         = OutletDeviceState.withName(proto.state),
       recentSession = fromProtobuf(proto.recentSession.get)
     )

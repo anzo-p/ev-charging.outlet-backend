@@ -29,15 +29,15 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
   private def getActiveSessions(customerId: UUID): ZIO[DynamoDBExecutor, Throwable, Int] =
     for {
       query <- queryAll[ChargingSession](tableResource)
-                .indexName("customerId-on-charging-session-index")
+                .indexName("ev-outlet-app.charging-session-customerId.index")
                 .whereKey(PartitionKey("customerId") === customerId.toString)
                 .execute
 
       result <- query
                  .runCollect
-                 .map(
-                   _.toList
-                     .count(_.state.in(Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging))))
+                 .map(_.toList
+                   .count(
+                     _.state.in(Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging, OutletDeviceState.StoppingRequested))))
     } yield result
 
   override def getHistory(customerId: UUID): Task[List[ChargingSession]] =
@@ -45,10 +45,9 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
       query <- queryAll[ChargingSession](tableResource)
                 .whereKey(PartitionKey("customerId") === customerId.toString)
                 .execute
-
       result <- query.runCollect
     } yield result
-      .sortBy(_.startTime.getOrElse(java.time.OffsetDateTime.MIN))
+      .sortBy(_.startTime)
       .toList
       .reverse)
       .provideLayer(ZLayer.succeed(executor))
@@ -62,26 +61,20 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
       .provideLayer(ZLayer.succeed(executor))
 
   override def getSession(sessionId: UUID): Task[ChargingSession] =
-    (for {
-      session <- getByPK(sessionId)
-    } yield session)
+    getByPK(sessionId)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def aggregateSessionTotals(status: OutletStatusEvent, targetState: OutletDeviceState): Task[Unit] =
+  override def aggregateSessionTotals(status: OutletStatusEvent): Task[Unit] =
     (for {
       sessionId <- ZIO.from(status.recentSession.sessionId).orElseFail(new Error("no session id"))
-      data      <- getByPK(sessionId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-
-      endTime <- ZIO.from(status.recentSession.periodEnd match {
-                  case None        => java.time.OffsetDateTime.now()
-                  case Some(value) => value
-                })
+      data      <- getByPK(sessionId).filterOrFail(mayTransitionTo(status.state))(new Error(cannotTransitionTo(status.state)))
 
       _ <- putByPK(
             data.copy(
-              state            = targetState,
-              endTime          = Some(endTime),
-              powerConsumption = Some(data.powerConsumption.getOrElse(0.0) + status.recentSession.powerConsumption)))
+              state            = status.state,
+              endTime          = Some(status.recentSession.periodEnd.getOrElse(java.time.OffsetDateTime.now())),
+              powerConsumption = data.powerConsumption + status.recentSession.powerConsumption
+            ))
 
     } yield ())
       .provideLayer(ZLayer.succeed(executor))

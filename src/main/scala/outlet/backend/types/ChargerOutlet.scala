@@ -17,12 +17,27 @@ final case class ChargerOutlet(
     state: OutletDeviceState,
     sessionId: Option[UUID],
     rfidTag: String,
-    startTime: Option[java.time.OffsetDateTime],
+    startTime: java.time.OffsetDateTime,
     endTime: Option[java.time.OffsetDateTime],
     powerConsumption: Double,
     totalChargingEvents: Long,
     totalPowerConsumption: Double
-  )
+  ) {
+
+  def toOutletStatus: OutletStatusEvent =
+    OutletStatusEvent(
+      requester = OutletStateRequester.OutletDevice,
+      outletId  = this.outletId,
+      state     = this.state,
+      recentSession = EventSessionData(
+        sessionId        = this.sessionId,
+        rfidTag          = this.rfidTag,
+        periodStart      = this.startTime,
+        periodEnd        = this.endTime,
+        powerConsumption = this.powerConsumption
+      )
+    )
+}
 
 object ChargerOutlet extends DateTimeSchemaImplicits {
 
@@ -43,26 +58,11 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       state                 = OutletDeviceState.Available,
       sessionId             = None,
       rfidTag               = "",
-      startTime             = None,
+      startTime             = java.time.OffsetDateTime.now(),
       endTime               = None,
       powerConsumption      = 0.0,
       totalChargingEvents   = 0L,
       totalPowerConsumption = 0.0
-    )
-
-  def toOutletStatus(outlet: ChargerOutlet): OutletStatusEvent =
-    OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = outlet.outletId,
-      eventTime = outlet.startTime.getOrElse(java.time.OffsetDateTime.now()),
-      state     = outlet.state,
-      recentSession = EventSessionData(
-        sessionId        = outlet.sessionId,
-        rfidTag          = outlet.rfidTag,
-        periodStart      = outlet.startTime,
-        periodEnd        = outlet.endTime,
-        powerConsumption = outlet.powerConsumption
-      )
     )
 
   object Ops {

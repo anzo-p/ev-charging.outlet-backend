@@ -2,12 +2,12 @@ package outlet.backend.events
 
 import nl.vroste.zio.kinesis.client.Record
 import outlet.backend.ChargerOutletService
-import shared.events.OutletEventConsumer
+import shared.events.{OutletEventConsumer, OutletEventProducer}
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.outletStatus.OutletStatusEvent
 import zio._
 
-final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletService, correspondent: DeviceEndOutletEventProducer)
+final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletService, correspondent: OutletEventProducer)
     extends OutletEventConsumer {
 
   val applicationName: String = "outlet-backend"
@@ -27,20 +27,14 @@ final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletServic
         for {
           _ <- ZIO.succeed(println("App has ACKed our Charging Request")).unit
           // http client to call back to aws api gateway websocket to start charging
-          _ <- outletService
-                .aggregateConsumption(
-                  record
-                    .data
-                    .copy(
-                      state         = OutletDeviceState.Charging,
-                      recentSession = record.data.recentSession.copy(periodStart = Some(java.time.OffsetDateTime.now()))))
-                .unit
+          _ <- outletService.aggregateConsumption(record.data.copy(state = OutletDeviceState.Charging)).unit
         } yield ()
 
       case OutletDeviceState.StoppingRequested =>
         for {
-          _ <- ZIO.succeed(println("StoppingRequested")).unit
-          _ <- outletService.stopCharging(record.data)
+          _           <- ZIO.succeed(println("StoppingRequested")).unit
+          finalReport <- outletService.stopCharging(record.data)
+          _           <- correspondent.put(finalReport.toOutletStatus.copy(state = OutletDeviceState.Finished))
         } yield ()
 
       case status =>
@@ -52,6 +46,6 @@ final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletServic
 
 object DeviceEndOutletEventConsumer {
 
-  val live: ZLayer[ChargerOutletService with DeviceEndOutletEventProducer, Nothing, DeviceEndOutletEventConsumer] =
+  val live: ZLayer[ChargerOutletService with OutletEventProducer, Nothing, DeviceEndOutletEventConsumer] =
     ZLayer.fromFunction(DeviceEndOutletEventConsumer.apply _)
 }

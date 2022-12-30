@@ -13,7 +13,7 @@ trait CustomerService {
 
   def getRfidTag(customerId: UUID): Task[String]
 
-  def getCustomerByRfidTag(rfidTag: String): Task[Option[UUID]]
+  def getCustomerIdByRfidTag(rfidTag: String): Task[Option[UUID]]
 
   def update(customerId: UUID, params: Customer): Task[Option[Item]]
 }

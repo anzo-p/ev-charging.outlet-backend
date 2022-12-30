@@ -37,20 +37,17 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
       .provideLayer(ZLayer.succeed(executor))
 
   override def getRfidTag(customerId: UUID): Task[String] =
-    (for {
-      result <- getByPK(customerId)
-    } yield result.rfidTag)
+    getByPK(customerId)
+      .map(_.rfidTag)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def getCustomerByRfidTag(rfidTag: String): Task[Option[UUID]] =
+  override def getCustomerIdByRfidTag(rfidTag: String): Task[Option[UUID]] =
     (for {
       query <- queryAll[Customer](tableResource)
-                .indexName("rfidTag-on-customer-index")
+                .indexName("ev-outlet-app.customer-rfidTag.index")
                 .whereKey(PartitionKey("rfidTag") === rfidTag)
                 .execute
-
       result <- query.map(_.customerId).runHead
-
     } yield result)
       .provideLayer(ZLayer.succeed(executor))
 

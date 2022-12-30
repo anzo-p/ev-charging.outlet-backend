@@ -1,9 +1,8 @@
 package outlet.backend.http
 
 import outlet.backend.ChargerOutletService
-import outlet.backend.events.StreamWriter
 import outlet.backend.http.dto._
-import outlet.backend.types.ChargerOutlet
+import shared.events.OutletEventProducer
 import shared.http.BaseRoutes
 import shared.types.outletStatus.OutletStatusEvent
 import shared.validation.InputValidation.validateUUID
@@ -12,7 +11,7 @@ import zhttp.service.Server
 import zio._
 import zio.json._
 
-final case class OutletRoutes(service: ChargerOutletService, streamWriter: StreamWriter) extends BaseRoutes {
+final case class OutletRoutes(service: ChargerOutletService, streamWriter: OutletEventProducer) extends BaseRoutes {
 
   val routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
@@ -40,7 +39,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
           initData <- service.setChargingRequested(OutletStatusEvent.deviceStart(outletId, rfid)).mapError(th => badRequest(th.getMessage))
-          _        <- streamWriter.put(ChargerOutlet.toOutletStatus(initData)).mapError(serverError)
+          _        <- streamWriter.put(initData.toOutletStatus).mapError(serverError)
           // customer.backend will consume, check user, then emit ok to us
           // our consumer expects ack and calls service.beginCharging(..) and zio.http client to post respective message to aws api gateway
         } yield {
@@ -55,7 +54,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
           dto  <- body.fromJson[CreateIntermediateReport].orFail(invalidPayload)
           // validate input
           report <- service.aggregateConsumption(CreateIntermediateReport.toOutletStatus(dto)).mapError(th => badRequest(th.getMessage))
-          _      <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
+          _      <- streamWriter.put(report.toOutletStatus).mapError(serverError)
         } yield {
           Response(Status.Ok, defaultHeaders)
         }).respond
@@ -64,7 +63,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
         (for {
           outletId <- validateUUID(outlet, "charger").toEither.orFail(unProcessableEntity)
           report   <- service.stopCharging(OutletStatusEvent.deviceStop(outletId, rfid)).mapError(th => badRequest(th.getMessage))
-          _        <- streamWriter.put(ChargerOutlet.toOutletStatus(report)).mapError(serverError)
+          _        <- streamWriter.put(report.toOutletStatus).mapError(serverError)
           // use zio.http client to post respective message to aws api gateway
         } yield {
           Response(Status.Ok, defaultHeaders)
@@ -77,6 +76,6 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Strea
 
 object OutletRoutes {
 
-  val live: ZLayer[ChargerOutletService with StreamWriter, Nothing, OutletRoutes] =
+  val live: ZLayer[ChargerOutletService with OutletEventProducer, Nothing, OutletRoutes] =
     ZLayer.fromFunction(OutletRoutes.apply _)
 }

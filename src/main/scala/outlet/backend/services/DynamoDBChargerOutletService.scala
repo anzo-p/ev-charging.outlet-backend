@@ -26,7 +26,6 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   private def getByOutletIdAndRfidTag(outletId: UUID, rfidTag: Option[String]): ZIO[DynamoDBExecutor, Throwable, ChargerOutlet] =
     for {
-      _ <- ZIO.succeed(println(s"outletId: $outletId and rfidTag: $rfidTag"))
       result <- getByPK(outletId).filterOrFail(r => r.rfidTag == rfidTag.getOrElse(r.rfidTag))(
                  new Error(s"no data found for outletId: $outletId and rfidTag: $rfidTag"))
     } yield result

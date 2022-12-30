@@ -15,7 +15,6 @@ message EventSessionDataProto {
 message OutletStatusEventProto {
   string requester = 1;
   string outletId = 2;
-  google.protobuf.Timestamp eventTime = 3;
-  string state = 4;
-  EventSessionDataProto recentSession = 5;
+  string state = 3;
+  EventSessionDataProto recentSession = 4;
 }

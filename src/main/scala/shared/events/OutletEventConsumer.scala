@@ -21,7 +21,7 @@ trait OutletEventConsumer {
     Consumer
       .shardedStream(
         streamName      = resourceName,
-        applicationName = applicationName,
+        applicationName = s"ev-outlet-app.outlet-events-checkpoints.$applicationName.table",
         deserializer    = OutletStatusEventSerDes.byteArray
       )
       .flatMapPar(4) {

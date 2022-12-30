@@ -15,23 +15,22 @@ final case class ChargingSession(
     outletId: UUID,
     state: OutletDeviceState,
     purchaseChannel: PurchaseChannel,
-    startTime: Option[java.time.OffsetDateTime],
+    startTime: java.time.OffsetDateTime,
     endTime: Option[java.time.OffsetDateTime],
-    powerConsumption: Option[Double]
+    powerConsumption: Double
   ) {
 
   def toEvent: OutletStatusEvent =
     OutletStatusEvent(
       requester = OutletStateRequester.Application,
       outletId  = outletId,
-      eventTime = java.time.OffsetDateTime.now(),
       state     = state,
       recentSession = EventSessionData(
         sessionId        = Some(sessionId),
         rfidTag          = rfidTag,
         periodStart      = startTime,
         periodEnd        = endTime,
-        powerConsumption = powerConsumption.getOrElse(0.0)
+        powerConsumption = powerConsumption
       )
     )
 }
@@ -49,9 +48,9 @@ object ChargingSession extends DateTimeSchemaImplicits {
       outletId         = outletId,
       state            = OutletDeviceState.ChargingRequested,
       purchaseChannel  = purchaseChannel,
-      startTime        = None,
+      startTime        = java.time.OffsetDateTime.now(),
       endTime          = None,
-      powerConsumption = Some(0.0)
+      powerConsumption = 0.0
     )
 
   def fromEvent(customerId: UUID, event: OutletStatusEvent): ChargingSession =
@@ -64,41 +63,9 @@ object ChargingSession extends DateTimeSchemaImplicits {
       purchaseChannel  = PurchaseChannel.OutletDevice,
       startTime        = event.recentSession.periodStart,
       endTime          = event.recentSession.periodEnd,
-      powerConsumption = Some(event.recentSession.powerConsumption)
+      powerConsumption = event.recentSession.powerConsumption
     )
 
   def mayTransitionTo(nextState: OutletDeviceState): ChargingSession => Boolean =
     _.state.in(getPreStatesTo(nextState))
-}
-
-final case class ChargingSessionUpdate(
-    sessionId: UUID,
-    rfidTag: String,
-    outletId: UUID,
-    state: OutletDeviceState,
-    startTime: java.time.OffsetDateTime,
-    endTime: java.time.OffsetDateTime,
-    powerConsumption: Double
-  )
-
-object ChargingSessionUpdate extends DateTimeSchemaImplicits {
-
-  //implicit lazy val schema: Schema[ChargingSessionUpdate] =
-  //  DeriveSchema.gen[ChargingSessionUpdate]
-
-  def fromEvent(
-      event: OutletStatusEvent,
-      sessionId: UUID,
-      startTime: java.time.OffsetDateTime,
-      endTime: java.time.OffsetDateTime
-    ): ChargingSessionUpdate =
-    ChargingSessionUpdate(
-      sessionId        = sessionId,
-      rfidTag          = event.recentSession.rfidTag,
-      outletId         = event.outletId,
-      state            = event.state,
-      startTime        = startTime,
-      endTime          = endTime,
-      powerConsumption = event.recentSession.powerConsumption
-    )
 }

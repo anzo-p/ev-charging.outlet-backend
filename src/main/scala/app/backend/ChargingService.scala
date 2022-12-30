@@ -1,7 +1,6 @@
 package app.backend
 
 import app.backend.types.chargingSession.ChargingSession
-import shared.types.enums.OutletDeviceState
 import shared.types.outletStatus.OutletStatusEvent
 import zio.Task
 
@@ -14,7 +13,7 @@ trait ChargingService {
 
   def getSession(sessionId: UUID): Task[ChargingSession]
 
-  def aggregateSessionTotals(status: OutletStatusEvent, targetState: OutletDeviceState): Task[Unit]
+  def aggregateSessionTotals(status: OutletStatusEvent): Task[Unit]
 
   def setStopRequested(sessionId: UUID): Task[Unit]
 }

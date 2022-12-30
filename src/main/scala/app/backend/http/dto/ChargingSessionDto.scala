@@ -28,7 +28,7 @@ final case class ChargingSessionDto(
     outletId: UUID,
     state: String,
     purchaseChannel: String,
-    startTime: Option[java.time.OffsetDateTime],
+    startTime: java.time.OffsetDateTime,
     endTime: Option[java.time.OffsetDateTime],
     powerConsumption: Double
   )
@@ -46,6 +46,6 @@ object ChargingSessionDto {
       purchaseChannel  = model.purchaseChannel.entryName,
       startTime        = model.startTime,
       endTime          = model.endTime,
-      powerConsumption = model.powerConsumption.getOrElse(0.0)
+      powerConsumption = model.powerConsumption
     )
 }

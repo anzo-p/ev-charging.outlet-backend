@@ -22,12 +22,11 @@ object CreateIntermediateReport {
     OutletStatusEvent(
       requester = OutletStateRequester.OutletDevice,
       outletId  = report.outletId,
-      eventTime = java.time.OffsetDateTime.now(),
       state     = OutletDeviceState.Charging,
       recentSession = EventSessionData(
         sessionId        = None,
         rfidTag          = report.rfidTag,
-        periodStart      = Some(report.periodStart),
+        periodStart      = report.periodStart,
         periodEnd        = Some(report.periodEnd),
         powerConsumption = report.powerConsumption
       )

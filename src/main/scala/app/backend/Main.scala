@@ -1,9 +1,10 @@
 package app.backend
 
-import app.backend.events.{AppEndOutletEventConsumer, AppEndOutletEventProducer}
+import app.backend.events.AppEndOutletEventConsumer
 import app.backend.http.{AppServer, ChargingRoutes, CustomerRoutes}
 import app.backend.services.{DynamoDBChargingService, DynamoDBCustomerService}
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
+import shared.events.OutletEventProducer
 import zio._
 import zio.aws.core.config.AwsConfig
 import zio.aws.dynamodb.DynamoDb
@@ -31,8 +32,8 @@ object Main extends ZIOAppDefault {
         Kinesis.live,
         NettyHttpClient.default,
         AppEndOutletEventConsumer.live,
-        AppEndOutletEventProducer.live,
-        AppEndOutletEventProducer.make,
+        OutletEventProducer.live,
+        OutletEventProducer.make,
         Scope.default
       )
       .exitCode
