@@ -2,21 +2,15 @@ package shared.events
 
 import nl.vroste.zio.kinesis.client.{Producer, ProducerRecord}
 import shared.types.outletStatus.{OutletStatusEvent, OutletStatusEventSerDes}
+import zio._
 import zio.aws.kinesis.Kinesis
-import zio.{Scope, Task, ZLayer}
 
 final case class OutletEventProducer(producer: Producer[OutletStatusEvent]) {
 
-  private def put(record: ProducerRecord[OutletStatusEvent]): Task[Unit] =
-    producer.produce(record).unit
-
   def put(event: OutletStatusEvent): Task[Unit] =
-    put(
-      ProducerRecord(
-        "123",
-        event
-      )
-    )
+    producer
+      .produce(ProducerRecord("123", event))
+      .unit
 }
 
 object OutletEventProducer {

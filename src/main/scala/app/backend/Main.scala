@@ -4,7 +4,7 @@ import app.backend.events.AppEndOutletEventConsumer
 import app.backend.http.{AppServer, ChargingRoutes, CustomerRoutes}
 import app.backend.services.{DynamoDBChargingService, DynamoDBCustomerService}
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
-import shared.events.OutletEventProducer
+import shared.events.{DeadLetterProducer, OutletEventProducer}
 import zio._
 import zio.aws.core.config.AwsConfig
 import zio.aws.dynamodb.DynamoDb
@@ -20,20 +20,27 @@ object Main extends ZIOAppDefault {
   override def run: URIO[Any, ExitCode] =
     program
       .provide(
+        // aws config
         AwsConfig.default,
-        ChargingRoutes.live,
-        CustomerRoutes.live,
-        AppServer.live,
+        NettyHttpClient.default,
+        // dynamodb
         DynamoDb.live,
         DynamoDBChargingService.live,
         DynamoDBCustomerService.live,
         DynamoDBExecutor.live,
+        // kinesis
+        AppEndOutletEventConsumer.live,
+        DeadLetterProducer.live,
+        DeadLetterProducer.make,
         DynamoDbLeaseRepository.live,
         Kinesis.live,
-        NettyHttpClient.default,
-        AppEndOutletEventConsumer.live,
         OutletEventProducer.live,
         OutletEventProducer.make,
+        // http
+        AppServer.live,
+        ChargingRoutes.live,
+        CustomerRoutes.live,
+        // zio
         Scope.default
       )
       .exitCode

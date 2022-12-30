@@ -2,13 +2,16 @@ package outlet.backend.events
 
 import nl.vroste.zio.kinesis.client.Record
 import outlet.backend.ChargerOutletService
-import shared.events.{OutletEventConsumer, OutletEventProducer}
+import shared.events.{DeadLetterProducer, OutletEventConsumer, OutletEventProducer}
 import shared.types.enums.{OutletDeviceState, OutletStateRequester}
 import shared.types.outletStatus.OutletStatusEvent
 import zio._
 
-final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletService, correspondent: OutletEventProducer)
-    extends OutletEventConsumer {
+final case class DeviceEndOutletEventConsumer(
+    outletService: ChargerOutletService,
+    correspondent: OutletEventProducer,
+    deadLetters: DeadLetterProducer
+  ) extends OutletEventConsumer {
 
   val applicationName: String = "outlet-backend"
 
@@ -46,6 +49,6 @@ final case class DeviceEndOutletEventConsumer(outletService: ChargerOutletServic
 
 object DeviceEndOutletEventConsumer {
 
-  val live: ZLayer[ChargerOutletService with OutletEventProducer, Nothing, DeviceEndOutletEventConsumer] =
+  val live: ZLayer[ChargerOutletService with OutletEventProducer with DeadLetterProducer, Nothing, DeviceEndOutletEventConsumer] =
     ZLayer.fromFunction(DeviceEndOutletEventConsumer.apply _)
 }
