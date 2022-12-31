@@ -40,7 +40,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     (for {
       data     <- getByOutletIdAndRfidTag(outletId, rfidTag)
       filtered <- ZIO.succeed(data).filterOrFail(_.mayTransitionTo(nextState))(new Error(message))
-      updated  <- ZIO.succeed(filtered.copy(state = nextState))
+      updated  <- ZIO.succeed(filtered.copy(outletState = nextState))
       _        <- putByPK(updated)
     } yield if (yieldResult) Some(updated) else None)
       .provideLayer(ZLayer.succeed(executor))
@@ -52,7 +52,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
       update <- ZIO.succeed(
                  data.copy(
-                   state            = targetState,
+                   outletState      = targetState,
                    startTime        = event.recentSession.periodStart,
                    endTime          = event.recentSession.periodEnd,
                    powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
@@ -86,13 +86,13 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       }
 
   override def setChargingRequested(event: OutletStatusEvent): Task[ChargerOutlet] = {
-    val targetState = event.state
+    val targetState = event.outletState
     (for {
       data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
                  data.copy(
-                   state            = targetState,
+                   outletState      = targetState,
                    rfidTag          = event.recentSession.rfidTag,
                    startTime        = event.recentSession.periodStart,
                    endTime          = event.recentSession.periodEnd,

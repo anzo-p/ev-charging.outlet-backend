@@ -20,9 +20,9 @@ object CreateIntermediateReport {
 
   def toOutletStatus(report: CreateIntermediateReport): OutletStatusEvent =
     OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = report.outletId,
-      state     = OutletDeviceState.Charging,
+      requester   = OutletStateRequester.OutletDevice,
+      outletId    = report.outletId,
+      outletState = OutletDeviceState.Charging,
       recentSession = EventSessionData(
         sessionId        = None,
         rfidTag          = report.rfidTag,

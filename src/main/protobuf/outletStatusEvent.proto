@@ -15,6 +15,6 @@ message EventSessionDataProto {
 message OutletStatusEventProto {
   string requester = 1;
   string outletId = 2;
-  string state = 3;
+  string outletState = 3;
   EventSessionDataProto recentSession = 4;
 }

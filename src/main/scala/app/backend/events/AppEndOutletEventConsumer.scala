@@ -20,11 +20,11 @@ final case class AppEndOutletEventConsumer(
   def follow: OutletStateRequester = OutletStateRequester.OutletDevice
 
   def consume(record: Record[OutletStatusEvent]): Task[Unit] =
-    record.data.state match {
+    record.data.outletState match {
       case OutletDeviceState.ChargingRequested =>
         for {
           customerId <- customerService.getCustomerIdByRfidTag(record.data.recentSession.rfidTag)
-          session    <- ZIO.from(ChargingSession.fromEvent(customerId.get, record.data).copy(state = OutletDeviceState.Charging))
+          session    <- ZIO.from(ChargingSession.fromEvent(customerId.get, record.data).copy(sessionState = OutletDeviceState.Charging))
           _          <- chargingService.initialize(session)
           _          <- correspondent.put(session.toEvent)
           // else NACK
@@ -32,12 +32,12 @@ final case class AppEndOutletEventConsumer(
 
       case OutletDeviceState.Charging =>
         for {
-          _ <- chargingService.aggregateSessionTotals(record.data.copy(state = OutletDeviceState.Charging))
+          _ <- chargingService.aggregateSessionTotals(record.data.copy(outletState = OutletDeviceState.Charging))
         } yield ()
 
       case OutletDeviceState.Finished =>
         for {
-          _ <- chargingService.aggregateSessionTotals(record.data.copy(state = OutletDeviceState.Finished))
+          _ <- chargingService.aggregateSessionTotals(record.data.copy(outletState = OutletDeviceState.Finished))
         } yield ()
       case state =>
         for {

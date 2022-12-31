@@ -24,7 +24,7 @@ object OutletStatusEventSerDes {
     OutletStatusEventProto(
       requester     = outlet.requester.entryName,
       outletId      = outlet.outletId.toString,
-      state         = outlet.state.entryName,
+      outletState   = outlet.outletState.entryName,
       recentSession = Some(toProtobuf(outlet.recentSession))
     )
 
@@ -41,7 +41,7 @@ object OutletStatusEventSerDes {
     OutletStatusEvent(
       requester     = OutletStateRequester.withName(proto.requester),
       outletId      = UUID.fromString(proto.outletId),
-      state         = OutletDeviceState.withName(proto.state),
+      outletState   = OutletDeviceState.withName(proto.outletState),
       recentSession = fromProtobuf(proto.recentSession.get)
     )
 

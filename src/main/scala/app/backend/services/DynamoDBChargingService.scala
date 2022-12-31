@@ -1,8 +1,8 @@
 package app.backend.services
 
-import app.backend.types.chargingSession.ChargingSession
-import ChargingSession.mayTransitionTo
 import app.backend.ChargingService
+import app.backend.types.chargingSession.ChargingSession.mayTransitionTo
+import app.backend.types.chargingSession.{ChargingSession, ChargingSessionsOfCustomer}
 import outlet.backend.types.ChargerOutlet.Ops.cannotTransitionTo
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
@@ -11,6 +11,7 @@ import shared.types.outletStatus.OutletStatusEvent
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb.PartitionKeyExpression.PartitionKey
+import zio.dynamodb.ProjectionExpression.$
 import zio.dynamodb._
 import zio.schema.{DeriveSchema, Schema}
 
@@ -28,16 +29,17 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
 
   private def getActiveSessions(customerId: UUID): ZIO[DynamoDBExecutor, Throwable, Int] =
     for {
-      query <- queryAll[ChargingSession](tableResource)
+      query <- queryAll[ChargingSessionsOfCustomer](tableResource, $("customerId"), $("sessionId"), $("sessionState"))
                 .indexName("ev-outlet-app.charging-session-customerId.index")
                 .whereKey(PartitionKey("customerId") === customerId.toString)
                 .execute
 
       result <- query
                  .runCollect
-                 .map(_.toList
-                   .count(
-                     _.state.in(Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging, OutletDeviceState.StoppingRequested))))
+                 .map(
+                   _.toList
+                     .count(_.sessionState.in(
+                       Seq(OutletDeviceState.ChargingRequested, OutletDeviceState.Charging, OutletDeviceState.StoppingRequested))))
     } yield result
 
   override def getHistory(customerId: UUID): Task[List[ChargingSession]] =
@@ -45,6 +47,7 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
       query <- queryAll[ChargingSession](tableResource)
                 .whereKey(PartitionKey("customerId") === customerId.toString)
                 .execute
+
       result <- query.runCollect
     } yield result
       .sortBy(_.startTime)
@@ -67,11 +70,11 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
   override def aggregateSessionTotals(status: OutletStatusEvent): Task[Unit] =
     (for {
       sessionId <- ZIO.from(status.recentSession.sessionId).orElseFail(new Error("no session id"))
-      data      <- getByPK(sessionId).filterOrFail(mayTransitionTo(status.state))(new Error(cannotTransitionTo(status.state)))
+      data      <- getByPK(sessionId).filterOrFail(mayTransitionTo(status.outletState))(new Error(cannotTransitionTo(status.outletState)))
 
       _ <- putByPK(
             data.copy(
-              state            = status.state,
+              sessionState     = status.outletState,
               endTime          = Some(status.recentSession.periodEnd.getOrElse(java.time.OffsetDateTime.now())),
               powerConsumption = data.powerConsumption + status.recentSession.powerConsumption
             ))
@@ -83,7 +86,7 @@ final case class DynamoDBChargingService(executor: DynamoDBExecutor)
     val targetState = OutletDeviceState.StoppingRequested
     (for {
       data <- getByPK(sessionId).filterOrFail(mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-      _    <- putByPK(data.copy(state = targetState))
+      _    <- putByPK(data.copy(sessionState = targetState))
     } yield ())
       .provideLayer(ZLayer.succeed(executor))
   }

@@ -15,7 +15,7 @@ final case class EventSessionData(
 final case class OutletStatusEvent(
     requester: OutletStateRequester,
     outletId: UUID,
-    state: OutletDeviceState,
+    outletState: OutletDeviceState,
     recentSession: EventSessionData
   )
 
@@ -23,9 +23,9 @@ object OutletStatusEvent {
 
   def deviceStart(outletId: UUID, rfidTag: String): OutletStatusEvent =
     OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = outletId,
-      state     = OutletDeviceState.ChargingRequested,
+      requester   = OutletStateRequester.OutletDevice,
+      outletId    = outletId,
+      outletState = OutletDeviceState.ChargingRequested,
       recentSession = EventSessionData(
         sessionId        = None,
         rfidTag          = rfidTag,
@@ -37,9 +37,9 @@ object OutletStatusEvent {
 
   def deviceStop(outletId: UUID, rfidTag: String): OutletStatusEvent =
     OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = outletId,
-      state     = OutletDeviceState.Finished,
+      requester   = OutletStateRequester.OutletDevice,
+      outletId    = outletId,
+      outletState = OutletDeviceState.Finished,
       recentSession = EventSessionData(
         sessionId        = None,
         rfidTag          = rfidTag,

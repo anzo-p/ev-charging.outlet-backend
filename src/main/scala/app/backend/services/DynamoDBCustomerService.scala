@@ -1,7 +1,7 @@
 package app.backend.services
 
 import app.backend.CustomerService
-import app.backend.types.customer.Customer
+import app.backend.types.customer.{Customer, CustomerIdAndRfidTag}
 import shared.db.DynamoDBPrimitives
 import zio._
 import zio.dynamodb.DynamoDBQuery._
@@ -43,10 +43,11 @@ final case class DynamoDBCustomerService(executor: DynamoDBExecutor) extends Cus
 
   override def getCustomerIdByRfidTag(rfidTag: String): Task[Option[UUID]] =
     (for {
-      query <- queryAll[Customer](tableResource)
+      query <- queryAll[CustomerIdAndRfidTag](tableResource, $("customerId"), $("rfidTag"))
                 .indexName("ev-outlet-app.customer-rfidTag.index")
                 .whereKey(PartitionKey("rfidTag") === rfidTag)
                 .execute
+
       result <- query.map(_.customerId).runHead
     } yield result)
       .provideLayer(ZLayer.succeed(executor))

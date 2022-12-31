@@ -18,7 +18,7 @@ final case class DeviceEndOutletEventConsumer(
   def follow: OutletStateRequester = OutletStateRequester.Application
 
   def consume(record: Record[OutletStatusEvent]): Task[Unit] =
-    record.data.state match {
+    record.data.outletState match {
       case OutletDeviceState.ChargingRequested =>
         for {
           _ <- ZIO.succeed(println("ChargingRequested")).unit
@@ -30,14 +30,14 @@ final case class DeviceEndOutletEventConsumer(
         for {
           _ <- ZIO.succeed(println("App has ACKed our Charging Request")).unit
           // http client to call back to aws api gateway websocket to start charging
-          _ <- outletService.aggregateConsumption(record.data.copy(state = OutletDeviceState.Charging)).unit
+          _ <- outletService.aggregateConsumption(record.data.copy(outletState = OutletDeviceState.Charging)).unit
         } yield ()
 
       case OutletDeviceState.StoppingRequested =>
         for {
           _           <- ZIO.succeed(println("StoppingRequested")).unit
           finalReport <- outletService.stopCharging(record.data)
-          _           <- correspondent.put(finalReport.toOutletStatus.copy(state = OutletDeviceState.Finished))
+          _           <- correspondent.put(finalReport.toOutletStatus.copy(outletState = OutletDeviceState.Finished))
         } yield ()
 
       case status =>

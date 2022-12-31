@@ -13,7 +13,7 @@ final case class ChargingSession(
     customerId: UUID,
     rfidTag: String,
     outletId: UUID,
-    state: OutletDeviceState,
+    sessionState: OutletDeviceState,
     purchaseChannel: PurchaseChannel,
     startTime: java.time.OffsetDateTime,
     endTime: Option[java.time.OffsetDateTime],
@@ -22,9 +22,9 @@ final case class ChargingSession(
 
   def toEvent: OutletStatusEvent =
     OutletStatusEvent(
-      requester = OutletStateRequester.Application,
-      outletId  = outletId,
-      state     = state,
+      requester   = OutletStateRequester.Application,
+      outletId    = outletId,
+      outletState = sessionState,
       recentSession = EventSessionData(
         sessionId        = Some(sessionId),
         rfidTag          = rfidTag,
@@ -46,7 +46,7 @@ object ChargingSession extends DateTimeSchemaImplicits {
       customerId       = customerId,
       rfidTag          = "",
       outletId         = outletId,
-      state            = OutletDeviceState.ChargingRequested,
+      sessionState     = OutletDeviceState.ChargingRequested,
       purchaseChannel  = purchaseChannel,
       startTime        = java.time.OffsetDateTime.now(),
       endTime          = None,
@@ -59,7 +59,7 @@ object ChargingSession extends DateTimeSchemaImplicits {
       customerId       = customerId,
       rfidTag          = event.recentSession.rfidTag,
       outletId         = event.outletId,
-      state            = event.state,
+      sessionState     = event.outletState,
       purchaseChannel  = PurchaseChannel.OutletDevice,
       startTime        = event.recentSession.periodStart,
       endTime          = event.recentSession.periodEnd,
@@ -67,5 +67,5 @@ object ChargingSession extends DateTimeSchemaImplicits {
     )
 
   def mayTransitionTo(nextState: OutletDeviceState): ChargingSession => Boolean =
-    _.state.in(getPreStatesTo(nextState))
+    _.sessionState.in(getPreStatesTo(nextState))
 }

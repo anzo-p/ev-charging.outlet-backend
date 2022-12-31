@@ -11,7 +11,7 @@ final case class ChargerOutletDto(
     outletCode: String,
     address: String,
     maxPower: Double,
-    state: String
+    outletState: String
   ) {
 
   def toModel: ChargerOutlet =
@@ -33,6 +33,6 @@ object ChargerOutletDto {
       model.outletCode,
       model.address,
       model.maxPower,
-      model.state.entryName
+      model.outletState.entryName
     )
 }

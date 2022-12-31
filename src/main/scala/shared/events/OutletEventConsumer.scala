@@ -23,7 +23,7 @@ trait OutletEventConsumer {
   private def consumeAndCatch(record: Record[OutletStatusEvent]): ZIO[Any, Throwable, Unit] =
     consume(record).catchAll {
       case th: Throwable => deadLetters.send[OutletStatusEvent](record, th)
-      case _ => ZIO.succeed(())
+      case _             => ZIO.succeed(())
     }
 
   def start: ZIO[Kinesis with LeaseRepository with Any, Throwable, Unit] =

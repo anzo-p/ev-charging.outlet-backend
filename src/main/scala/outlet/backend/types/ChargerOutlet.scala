@@ -14,7 +14,7 @@ final case class ChargerOutlet(
     outletCode: String,
     address: String,
     maxPower: Double,
-    state: OutletDeviceState,
+    outletState: OutletDeviceState,
     sessionId: Option[UUID],
     rfidTag: String,
     startTime: java.time.OffsetDateTime,
@@ -26,9 +26,9 @@ final case class ChargerOutlet(
 
   def toOutletStatus: OutletStatusEvent =
     OutletStatusEvent(
-      requester = OutletStateRequester.OutletDevice,
-      outletId  = this.outletId,
-      state     = this.state,
+      requester   = OutletStateRequester.OutletDevice,
+      outletId    = this.outletId,
+      outletState = this.outletState,
       recentSession = EventSessionData(
         sessionId        = this.sessionId,
         rfidTag          = this.rfidTag,
@@ -55,7 +55,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       outletCode            = outletCode,
       address               = address,
       maxPower              = maxPower,
-      state                 = OutletDeviceState.Available,
+      outletState           = OutletDeviceState.Available,
       sessionId             = None,
       rfidTag               = "",
       startTime             = java.time.OffsetDateTime.now(),
@@ -69,7 +69,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
     implicit class ChargerOutletOps(outlet: ChargerOutlet) {
 
       def mayTransitionTo(targetState: OutletDeviceState): Boolean =
-        outlet.state.in(getPreStatesTo(targetState))
+        outlet.outletState.in(getPreStatesTo(targetState))
     }
 
     def cannotTransitionTo(targetState: OutletDeviceState): String =
