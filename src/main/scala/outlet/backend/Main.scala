@@ -17,7 +17,7 @@ object Main extends ZIOAppDefault {
   val program =
     ZIO.serviceWithZIO[OutletRoutes](_.start).zipPar(ZIO.serviceWithZIO[DeviceEndOutletEventConsumer](_.start))
 
-  override def run: ZIO[Any, Throwable, ExitCode] =
+  val setup =
     program
       .provide(
         // aws config
@@ -40,5 +40,10 @@ object Main extends ZIOAppDefault {
         // zio
         Scope.default
       )
-      .exitCode
+
+  override def run: URIO[Any, ExitCode] =
+    setup.catchAll {
+      case throwable: Throwable => ZIO.succeed(println(throwable.getMessage))
+      case _                    => ZIO.succeed(())
+    }.exitCode
 }

@@ -71,7 +71,7 @@ final case class OutletRoutes(service: ChargerOutletService, streamWriter: Outle
     }
 
   val start: ZIO[Any, Throwable, Nothing] =
-    Server.start(8080, routes)
+    Server.start(8081, routes)
 }
 
 object OutletRoutes {
