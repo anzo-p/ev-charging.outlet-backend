@@ -1,6 +1,6 @@
 package outlet.backend.http.dto
 
-import outlet.backend.types.ChargerOutlet
+import outlet.backend.types.chargerOutlet.ChargerOutlet
 import zio.json.{DeriveJsonCodec, JsonCodec}
 
 import java.util.UUID

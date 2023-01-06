@@ -1,9 +1,8 @@
-package outlet.backend.types
+package outlet.backend.types.chargerOutlet
 
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
-import shared.types.enums.OutletDeviceState.getPreStatesTo
-import shared.types.enums.{OutletDeviceState, OutletStateRequester}
-import shared.types.outletStatus.{EventSessionData, OutletStatusEvent}
+import shared.types.chargingEvent.{ChargingEvent, EventSession}
+import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
@@ -24,12 +23,12 @@ final case class ChargerOutlet(
     totalPowerConsumption: Double
   ) {
 
-  def toOutletStatus: OutletStatusEvent =
-    OutletStatusEvent(
-      requester   = OutletStateRequester.OutletDevice,
+  def toOutletStatus: ChargingEvent =
+    ChargingEvent(
+      initiator   = EventInitiator.OutletDevice,
       outletId    = this.outletId,
       outletState = this.outletState,
-      recentSession = EventSessionData(
+      recentSession = EventSession(
         sessionId        = this.sessionId,
         rfidTag          = this.rfidTag,
         periodStart      = this.startTime,
@@ -64,15 +63,4 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       totalChargingEvents   = 0L,
       totalPowerConsumption = 0.0
     )
-
-  object Ops {
-    implicit class ChargerOutletOps(outlet: ChargerOutlet) {
-
-      def mayTransitionTo(targetState: OutletDeviceState): Boolean =
-        outlet.outletState.in(getPreStatesTo(targetState))
-    }
-
-    def cannotTransitionTo(targetState: OutletDeviceState): String =
-      s"outlet not in (one of) state(s) ${OutletDeviceState.getPreStatesTo(targetState).mkString("[ ", " ,", " ]")}"
-  }
 }

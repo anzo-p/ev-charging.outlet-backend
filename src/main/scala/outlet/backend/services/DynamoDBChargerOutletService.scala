@@ -1,12 +1,13 @@
 package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
-import outlet.backend.types.ChargerOutlet
-import outlet.backend.types.ChargerOutlet.Ops._
+import outlet.backend.types.chargerOutlet.ChargerOutlet
+import outlet.backend.types.chargerOutlet.ChargerOutletOps.ChargerOutletOps
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
+import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.OutletDeviceState
-import shared.types.outletStatus.OutletStatusEvent
+import shared.types.enums.OutletDeviceState.cannotTransitionTo
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb._
@@ -19,7 +20,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     with DynamoDBPrimitives[ChargerOutlet]
     with DateTimeSchemaImplicits {
 
-  val tableResource = "ev-outlet-app.charger-outlet.table"
+  val tableResource = "ev-charging_charger-outlet_table"
   val primaryKey    = "outletId"
 
   override def schema: Schema[ChargerOutlet] = DeriveSchema.gen[ChargerOutlet]
@@ -45,9 +46,8 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     } yield if (yieldResult) Some(updated) else None)
       .provideLayer(ZLayer.succeed(executor))
 
-  private def setOutletStateAggregatesReturningOrFail(event: OutletStatusEvent, targetState: OutletDeviceState): Task[ChargerOutlet] =
+  private def setOutletStateAggregatesReturningOrFail(event: ChargingEvent, targetState: OutletDeviceState): Task[ChargerOutlet] =
     (for {
-      _    <- ZIO.succeed(println(s"$event $targetState"))
       data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
@@ -62,12 +62,8 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
 
-  override def register(outlet: ChargerOutlet): Task[ChargerOutlet] =
-    (for {
-      inserted <- ZIO.succeed(outlet)
-      _        <- put(tableResource, inserted).execute
-    } yield inserted)
-      .provideLayer(ZLayer.succeed(executor))
+  override def register(outlet: ChargerOutlet): Task[Unit] =
+    put(tableResource, outlet).execute.provideLayer(ZLayer.succeed(executor))
 
   override def setOutletStateUnit(outletId: UUID, rfidTag: Option[String], targetState: OutletDeviceState): ZIO[Any, Throwable, Unit] =
     checkAndSetState(outletId, rfidTag, targetState, cannotTransitionTo(targetState)).unit
@@ -85,7 +81,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
           ZIO.succeed(outlet)
       }
 
-  override def setChargingRequested(event: OutletStatusEvent): Task[ChargerOutlet] = {
+  override def setChargingRequested(event: ChargingEvent): Task[ChargerOutlet] = {
     val targetState = event.outletState
     (for {
       data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
@@ -107,10 +103,10 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
   override def setCharging(outletId: UUID, rfidTag: String): Task[ChargerOutlet] =
     setOutletStateReturningOrFail(outletId, rfidTag, OutletDeviceState.Charging)
 
-  override def aggregateConsumption(event: OutletStatusEvent): Task[ChargerOutlet] =
+  override def aggregateConsumption(event: ChargingEvent): Task[ChargerOutlet] =
     setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.Charging)
 
-  override def stopCharging(event: OutletStatusEvent): Task[ChargerOutlet] =
+  override def stopCharging(event: ChargingEvent): Task[ChargerOutlet] =
     setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.CablePlugged)
 }
 
