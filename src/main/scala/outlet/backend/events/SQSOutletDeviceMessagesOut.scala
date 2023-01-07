@@ -1,11 +1,12 @@
 package outlet.backend.events
 
+import outlet.backend.OutletDeviceMessageProducer
 import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
 import zio._
 import zio.aws.sqs.Sqs
 import zio.sqs.producer.{Producer, ProducerEvent}
 
-final case class OutletDeviceMessageProducer(producer: Producer[OutletDeviceMessage]) {
+final case class SQSOutletDeviceMessagesOut(producer: Producer[OutletDeviceMessage]) extends OutletDeviceMessageProducer {
 
   def produce(message: OutletDeviceMessage): Task[Unit] =
     producer
@@ -19,7 +20,7 @@ final case class OutletDeviceMessageProducer(producer: Producer[OutletDeviceMess
       .unit
 }
 
-object OutletDeviceMessageProducer {
+object SQSOutletDeviceMessagesOut {
 
   val make: ZLayer[Any with Sqs with Scope, Throwable, Producer[OutletDeviceMessage]] =
     ZLayer.fromZIO {
@@ -30,5 +31,5 @@ object OutletDeviceMessageProducer {
     }
 
   val live: ZLayer[Producer[OutletDeviceMessage], Nothing, OutletDeviceMessageProducer] =
-    ZLayer.fromFunction(OutletDeviceMessageProducer.apply _)
+    ZLayer.fromFunction(SQSOutletDeviceMessagesOut.apply _)
 }

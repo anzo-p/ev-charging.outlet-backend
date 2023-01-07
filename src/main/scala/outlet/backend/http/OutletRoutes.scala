@@ -2,7 +2,6 @@ package outlet.backend.http
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.http.dto._
-import shared.events.ChargingEventProducer
 import shared.http.BaseRoutes
 import zhttp.http._
 import zhttp.service.Server
@@ -22,7 +21,7 @@ final case class OutletRoutes(service: ChargerOutletService) extends BaseRoutes 
           dto  <- body.fromJson[ChargerOutletDto].orFail(invalidPayload)
           // validate payload
           outlet = dto.toModel
-          _ <- service.register(outlet).mapError(th => badRequest(th.getMessage))
+          _ <- service.register(outlet).mapError(serverError)
         } yield {
           Response(
             Status.Created,
@@ -40,6 +39,6 @@ final case class OutletRoutes(service: ChargerOutletService) extends BaseRoutes 
 
 object OutletRoutes {
 
-  val live: ZLayer[ChargerOutletService with ChargingEventProducer, Nothing, OutletRoutes] =
+  val live: ZLayer[ChargerOutletService, Nothing, OutletRoutes] =
     ZLayer.fromFunction(OutletRoutes.apply _)
 }

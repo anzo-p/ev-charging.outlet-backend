@@ -1,10 +1,10 @@
 package outlet.backend
 
 import nl.vroste.zio.kinesis.client.zionative.leaserepository.DynamoDbLeaseRepository
-import outlet.backend.events.{DeviceEndChargingEventConsumer, OutletDeviceMessageConsumer, OutletDeviceMessageProducer}
+import outlet.backend.events.{KinesisChargingEventsIn, SQSOutletDeviceMessagesIn, SQSOutletDeviceMessagesOut}
 import outlet.backend.http.OutletRoutes
 import outlet.backend.services.DynamoDBChargerOutletService
-import shared.events.{ChargingEventProducer, DeadLetterProducer}
+import shared.events.kinesis.{KinesisChargingEventsOut, KinesisDeadLetters}
 import zio._
 import zio.aws.core.config.AwsConfig
 import zio.aws.dynamodb.DynamoDb
@@ -18,8 +18,8 @@ object Main extends ZIOAppDefault {
   val program =
     ZIO
       .serviceWithZIO[OutletRoutes](_.start)
-      .zipPar(ZIO.serviceWithZIO[OutletDeviceMessageConsumer](_.start))
-      .zipPar(ZIO.serviceWithZIO[DeviceEndChargingEventConsumer](_.start))
+      .zipPar(ZIO.serviceWithZIO[SQSOutletDeviceMessagesIn](_.start))
+      .zipPar(ZIO.serviceWithZIO[KinesisChargingEventsIn](_.start))
       .catchAll {
         case throwable: Throwable => ZIO.succeed(println(throwable.getMessage))
         case _                    => ZIO.succeed(())
@@ -36,17 +36,17 @@ object Main extends ZIOAppDefault {
         DynamoDBChargerOutletService.live,
         DynamoDBExecutor.live,
         // kinesis
-        DeadLetterProducer.live,
-        DeadLetterProducer.make,
-        DeviceEndChargingEventConsumer.live,
         DynamoDbLeaseRepository.live,
         Kinesis.live,
-        ChargingEventProducer.live,
-        ChargingEventProducer.make,
+        KinesisChargingEventsIn.live,
+        KinesisChargingEventsOut.live,
+        KinesisChargingEventsOut.make,
+        KinesisDeadLetters.live,
+        KinesisDeadLetters.make,
         // sqs
-        OutletDeviceMessageConsumer.live,
-        OutletDeviceMessageProducer.live,
-        OutletDeviceMessageProducer.make,
+        SQSOutletDeviceMessagesIn.live,
+        SQSOutletDeviceMessagesOut.live,
+        SQSOutletDeviceMessagesOut.make,
         Sqs.live,
         // http
         OutletRoutes.live,
@@ -60,3 +60,53 @@ object Main extends ZIOAppDefault {
       case _                    => ZIO.succeed(())
     }.exitCode
 }
+/*
+  outlet has something to say - from SQS consumer
+  - ok cable plugged
+    - update outlet - dynamodb
+
+  - ok charging requested
+    - verify outlet - dynamodb
+    - forward to app - kinesis
+
+  - ok currently charging and intermediate consumption report
+    - update outlet - device state and totals - dynamodb
+    - forward to app - kinesis
+
+  - ok stopping requested with final consumption report
+    - update outlet - device state and totals - dynamodb
+    - forward to app - kinesis
+
+  - ok cable unplugged, ie available
+    - update outlet - dynamodb
+
+  app has something top say - from Kinesis consumer
+  - charging requested by app - customership verified, session started
+    - update outlet - dynamodb
+    - forward to device - sqs
+    (app will be acked by next status report)
+
+  - charging approved by app - customership verified, session started
+    - update outlet - dynamodb
+    - forward to device - sqs
+
+  - stop charging requested by app
+    - update outlet - dynamodb
+    - forward to device - sqs
+    - produce totals report to app - kinesis
+ */
+
+/*
+  outlet backend has something to say - always kinesis
+  - charging requested by outlet
+    - verify customership - dynamodb
+    - initiate charging session - dynamodb
+    - ack back to app - kinesis
+    - nack back if validations not ok
+
+  - charging report from outlet
+    - update charging session - dynamodb
+
+  - stopped by outlet with final report
+    - update chartging session - dynamodb
+ */
