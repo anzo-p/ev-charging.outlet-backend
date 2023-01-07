@@ -25,7 +25,7 @@ final case class SQSOutletDeviceMessagesIn(service: ChargerOutletService, stream
           _ <- service.setOutletStateUnit(msg.outletId, Some(msg.rfidTag), OutletDeviceState.CablePlugged)
         } yield ()
 
-      case OutletDeviceState.ChargingRequested =>
+      case OutletDeviceState.DeviceRequestsCharging =>
         for {
           // verify then set outlet charging in dynamodb
           // forward ack or nack to app
@@ -41,7 +41,7 @@ final case class SQSOutletDeviceMessagesIn(service: ChargerOutletService, stream
           _      <- streamWriter.put(report.toOutletStatus)
         } yield ()
 
-      case OutletDeviceState.StoppingRequested =>
+      case OutletDeviceState.DeviceRequestsStop =>
         for {
           // update to Stop and also aggregate totals
           // forward to app, complete with local consumption data if needed

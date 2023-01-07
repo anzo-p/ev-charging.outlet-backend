@@ -20,7 +20,7 @@ final case class KinesisChargingEventsIn(
 
   def consume(data: ChargingEvent): Task[Unit] =
     data.outletState match {
-      case OutletDeviceState.ChargingRequested =>
+      case OutletDeviceState.AppRequestsCharging =>
         for {
           _ <- ZIO.succeed(println("ChargingRequested")).unit
           // App has requested
@@ -42,7 +42,7 @@ final case class KinesisChargingEventsIn(
           _ <- deviceWhisperer.produce(OutletDeviceMessage.fromChargingEvent(data)) //.outletId, OutletDeviceState.Charging))
         } yield ()
 
-      case OutletDeviceState.StoppingRequested =>
+      case OutletDeviceState.AppRequestsStop =>
         for {
           _ <- ZIO.succeed(println("StoppingRequested")).unit
           // app has requested a stop
