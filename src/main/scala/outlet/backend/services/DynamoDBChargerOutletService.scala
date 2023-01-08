@@ -2,12 +2,11 @@ package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.types.chargerOutlet.ChargerOutlet
-import outlet.backend.types.chargerOutlet.ChargerOutletOps.ChargerOutletOps
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.OutletDeviceState
-import shared.types.enums.OutletDeviceState.cannotTransitionTo
+import shared.types.outletStateMachine.OutletStateMachine._
 import zio._
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb._

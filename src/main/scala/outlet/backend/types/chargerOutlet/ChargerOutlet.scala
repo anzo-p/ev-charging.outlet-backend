@@ -3,6 +3,7 @@ package outlet.backend.types.chargerOutlet
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.chargingEvent.{ChargingEvent, EventSession}
 import shared.types.enums.{EventInitiator, OutletDeviceState}
+import shared.types.outletStateMachine.OutletStateMachine
 import zio.schema.{DeriveSchema, Schema}
 
 import java.util.UUID
@@ -21,7 +22,7 @@ final case class ChargerOutlet(
     powerConsumption: Double,
     totalChargingEvents: Long,
     totalPowerConsumption: Double
-  ) {
+  ) extends OutletStateMachine {
 
   def toOutletStatus: ChargingEvent =
     ChargingEvent(
