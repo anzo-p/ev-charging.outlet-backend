@@ -35,79 +35,88 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       outletId: UUID,
       rfidTag: Option[String],
       nextState: OutletDeviceState,
-      message: String,
-      yieldResult: Boolean = false
-    ): ZIO[Any, Throwable, Option[ChargerOutlet]] =
+      message: String
+    ): Task[Unit] =
     (for {
       data     <- getByOutletIdAndRfidTag(outletId, rfidTag)
       filtered <- ZIO.succeed(data).filterOrFail(_.mayTransitionTo(nextState))(new Error(message))
       updated  <- ZIO.succeed(filtered.copy(outletState = nextState))
       _        <- putByPK(updated)
-    } yield if (yieldResult) Some(updated) else None)
+    } yield ())
       .provideLayer(ZLayer.succeed(executor))
 
-  private def setOutletStateAggregatesReturningOrFail(event: ChargingEvent, targetState: OutletDeviceState): Task[ChargerOutlet] =
-    (for {
-      data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-
-      update <- ZIO.succeed(
-                 data.copy(
-                   outletState      = targetState,
-                   startTime        = event.recentSession.periodStart,
-                   endTime          = event.recentSession.periodEnd,
-                   powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
-                 ))
-
-      _ <- putByPK(update)
-    } yield update)
-      .provideLayer(ZLayer.succeed(executor))
+  private def aggregateConsumption(
+      data: ChargerOutlet,
+      state: OutletDeviceState,
+      endTime: Option[java.time.OffsetDateTime],
+      powerConsumption: Double
+    ): ZIO[Any, Nothing, ChargerOutlet] =
+    ZIO.succeed(
+      data.copy(
+        outletState      = state,
+        endTime          = endTime,
+        powerConsumption = data.powerConsumption + powerConsumption
+      ))
 
   override def register(outlet: ChargerOutlet): Task[Unit] =
     put(tableResource, outlet).execute.provideLayer(ZLayer.succeed(executor))
 
-  override def setOutletStateUnit(outletId: UUID, rfidTag: Option[String], targetState: OutletDeviceState): ZIO[Any, Throwable, Unit] =
-    checkAndSetState(outletId, rfidTag, targetState, cannotTransitionTo(targetState)).unit
-
-  private def setOutletStateReturningOrFail(
-      outletId: UUID,
-      rfidTag: String,
-      targetState: OutletDeviceState
-    ): ZIO[Any, Throwable, ChargerOutlet] =
-    checkAndSetState(outletId, Some(rfidTag), targetState, cannotTransitionTo(targetState))
-      .flatMap {
-        case None =>
-          ZIO.fail(new Error("unsuccessful update"))
-        case Some(outlet) =>
-          ZIO.succeed(outlet)
-      }
-
-  override def setChargingRequested(event: ChargingEvent): Task[ChargerOutlet] = {
-    val targetState = event.outletState
+  override def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit] =
     (for {
-      data <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
+      outlet <- getByOutletIdAndRfidTag(outletId, None)
+      _      <- ZIO.from(outlet).filterOrFail(_.mayTransitionTo(nextState))(new Error(message))
+    } yield ())
+      .provideLayer(ZLayer.succeed(executor))
+
+  override def setAvailable(outletId: UUID): Task[Unit] = {
+    val targetState = OutletDeviceState.Available
+    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState)).unit
+  }
+
+  override def setCablePlugged(outletId: UUID): Task[Unit] = {
+    val targetState = OutletDeviceState.CablePlugged
+    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState)).unit
+  }
+
+  override def setCharging(outletId: UUID, rfidTag: String): Task[Unit] = {
+    val targetState = OutletDeviceState.Charging
+    (for {
+      data <- getByPK(outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
       update <- ZIO.succeed(
                  data.copy(
                    outletState      = targetState,
-                   rfidTag          = event.recentSession.rfidTag,
-                   startTime        = event.recentSession.periodStart,
-                   endTime          = event.recentSession.periodEnd,
-                   powerConsumption = data.powerConsumption + event.recentSession.powerConsumption
+                   rfidTag          = rfidTag,
+                   startTime        = java.time.OffsetDateTime.now(),
+                   powerConsumption = 0
                  ))
 
       _ <- putByPK(update)
+    } yield ())
+      .provideLayer(ZLayer.succeed(executor))
+  }
+
+  override def aggregateConsumption(event: ChargingEvent): Task[ChargerOutlet] = {
+    val targetState = OutletDeviceState.Charging
+    (for {
+      data   <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
+      update <- aggregateConsumption(data, targetState, event.recentSession.periodEnd, event.recentSession.powerConsumption)
+      _      <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
   }
 
-  override def setCharging(outletId: UUID, rfidTag: String): Task[ChargerOutlet] =
-    setOutletStateReturningOrFail(outletId, rfidTag, OutletDeviceState.Charging)
+  override def stopCharging(event: ChargingEvent): Task[ChargerOutlet] = {
+    val targetState = OutletDeviceState.CablePlugged
+    (for {
+      data <- getByOutletIdAndRfidTag(event.outletId, Some(event.recentSession.rfidTag))
+               .filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
-  override def aggregateConsumption(event: ChargingEvent): Task[ChargerOutlet] =
-    setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.Charging)
-
-  override def stopCharging(event: ChargingEvent): Task[ChargerOutlet] =
-    setOutletStateAggregatesReturningOrFail(event, OutletDeviceState.CablePlugged)
+      update <- aggregateConsumption(data, targetState, event.recentSession.periodEnd, event.recentSession.powerConsumption)
+      _      <- putByPK(update)
+    } yield update)
+      .provideLayer(ZLayer.succeed(executor))
+  }
 }
 
 object DynamoDBChargerOutletService {

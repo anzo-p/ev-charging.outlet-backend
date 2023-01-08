@@ -8,53 +8,47 @@ import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio._
 
 final case class KinesisChargingEventsIn(
+    toBackend: ChargingEventProducer,
+    toDevice: OutletDeviceMessageProducer,
     outletService: ChargerOutletService,
-    correspondent: ChargingEventProducer,
-    deadLetters: DeadLetterProducer,
-    deviceWhisperer: OutletDeviceMessageProducer
+    deadLetters: DeadLetterProducer
   ) extends ChargingEventConsumer {
 
   val applicationName: String = "outlet-backend"
 
   def follow: EventInitiator = EventInitiator.Application
 
+  def handleTransitionToCharging(event: ChargingEvent): ZIO[Any, Throwable, Unit] =
+    for {
+      _ <- outletService.setCharging(event.outletId, event.recentSession.rfidTag)
+      _ <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStatus = OutletDeviceState.Charging))
+      // else NACK
+    } yield ()
+
   def consume(data: ChargingEvent): Task[Unit] =
     data.outletState match {
       case OutletDeviceState.AppRequestsCharging =>
         for {
-          _ <- ZIO.succeed(println("ChargingRequested")).unit
-          // App has requested
-          // check and set in dynamodb
-          // tell device to start charging
-          // ack or nack back to app
-          // be explicit about target status right here
-          _ <- outletService.setCharging(data.outletId, data.recentSession.rfidTag)
-          _ <- deviceWhisperer.produce(OutletDeviceMessage.fromChargingEvent(data)) //.outletId, OutletDeviceState.Charging))
+          _ <- outletService.checkTransitionOrElse(
+                data.outletId,
+                OutletDeviceState.AppRequestsCharging,
+                "Device already has active session")
+          _ <- handleTransitionToCharging(data)
         } yield ()
 
       case OutletDeviceState.Charging =>
-        for {
-          _ <- ZIO.succeed(println("App has ACKed our Charging Request")).unit
-          // we have requested, app has approved
-          // tell device to start charging
-          // set charging in dynamodb
-          _ <- outletService.setCharging(data.outletId, data.recentSession.rfidTag)
-          _ <- deviceWhisperer.produce(OutletDeviceMessage.fromChargingEvent(data)) //.outletId, OutletDeviceState.Charging))
-        } yield ()
+        handleTransitionToCharging(data)
 
       case OutletDeviceState.AppRequestsStop =>
         for {
-          _ <- ZIO.succeed(println("StoppingRequested")).unit
-          // app has requested a stop
-          // tell device to stop charging
-          // set to stop in dynamodb
-          finalReport <- outletService.stopCharging(data)
-          _           <- correspondent.put(finalReport.toOutletStatus.copy(outletState = OutletDeviceState.Finished))
+          finalReport <- outletService.stopCharging(data.copy(outletState = OutletDeviceState.ChargingFinished))
+          _           <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(data).copy(outletStatus = OutletDeviceState.ChargingFinished))
+          _           <- toBackend.put(finalReport.toOutletStatus)
         } yield ()
 
       case status =>
         for {
-          _ <- ZIO.succeed(println(s"Something else $status")).unit
+          _ <- ZIO.succeed(println(s"KinesisChargingEventsIn, unknown $status")).unit
         } yield ()
     }
 }
@@ -62,6 +56,6 @@ final case class KinesisChargingEventsIn(
 object KinesisChargingEventsIn {
 
   val live
-      : ZLayer[ChargerOutletService with ChargingEventProducer with DeadLetterProducer with OutletDeviceMessageProducer, Nothing, KinesisChargingEventsIn] =
+      : ZLayer[ChargingEventProducer with OutletDeviceMessageProducer with ChargerOutletService with DeadLetterProducer, Nothing, KinesisChargingEventsIn] =
     ZLayer.fromFunction(KinesisChargingEventsIn.apply _)
 }

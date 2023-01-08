@@ -9,48 +9,48 @@ import zio.aws.sqs.Sqs
 import zio.sqs.SqsStream
 import zio.{Task, ZIO, ZLayer}
 
-final case class SQSOutletDeviceMessagesIn(service: ChargerOutletService, streamWriter: ChargingEventProducer)
+final case class SQSOutletDeviceMessagesIn(toBackend: ChargingEventProducer, outletService: ChargerOutletService)
     extends OutletDeviceMessageConsumer {
 
-  def consume(msg: OutletDeviceMessage): Task[Unit] =
-    msg.outletStatus match {
+  def consume(data: OutletDeviceMessage): Task[Unit] =
+    data.outletStatus match {
       case OutletDeviceState.Available =>
-        // update outlet table in dynamodb - set status Available
-        service.setOutletStateUnit(msg.outletId, Some(msg.rfidTag), OutletDeviceState.Available)
+        for {
+          _ <- outletService.setAvailable(data.outletId)
+        } yield ()
 
       case OutletDeviceState.CablePlugged =>
-        // these appear the same case, spare the state, but the dynamodb part is awaiting bugfix on rfid still
-        // update outlet table in dynamodb - set status CablePlugged
         for {
-          _ <- service.setOutletStateUnit(msg.outletId, Some(msg.rfidTag), OutletDeviceState.CablePlugged)
+          _ <- outletService.setCablePlugged(data.outletId)
         } yield ()
 
       case OutletDeviceState.DeviceRequestsCharging =>
         for {
-          // verify then set outlet charging in dynamodb
-          // forward ack or nack to app
-          initData <- service.setChargingRequested(ChargingEvent.deviceStart(msg.outletId, msg.rfidTag))
-          _        <- streamWriter.put(initData.toOutletStatus)
+          _ <- outletService.checkTransitionOrElse(
+                data.outletId,
+                OutletDeviceState.DeviceRequestsCharging,
+                "Device already has active session")
+          _ <- toBackend.put(ChargingEvent.deviceStart(data.outletId, data.rfidTag))
         } yield ()
 
       case OutletDeviceState.Charging =>
         for {
-          // aggregate totals
-          // forward to app, complete with local consumption data if needed
-          report <- service.aggregateConsumption(msg.toChargingEvent)
-          _      <- streamWriter.put(report.toOutletStatus)
+          report <- outletService.aggregateConsumption(data.toChargingEvent)
+          _      <- toBackend.put(report.toOutletStatus)
         } yield ()
 
       case OutletDeviceState.DeviceRequestsStop =>
         for {
-          // update to Stop and also aggregate totals
-          // forward to app, complete with local consumption data if needed
-          report <- service.stopCharging(ChargingEvent.deviceStop(msg.outletId, msg.rfidTag))
-          _      <- streamWriter.put(report.toOutletStatus)
+          finalReport <- outletService.stopCharging(
+                          ChargingEvent
+                            .deviceStop(data.outletId, data.rfidTag)
+                            .copy(outletState = OutletDeviceState.ChargingFinished)
+                        )
+          _ <- toBackend.put(finalReport.toOutletStatus)
         } yield ()
 
       case _ =>
-        ZIO.succeed(println(s"OutletDeviceMessageConsumer, unknown event: ${msg.toString}"))
+        ZIO.succeed(println(s"OutletDeviceMessageConsumer, unknown event: ${data.toString}"))
     }
 
   def start: ZIO[Sqs, Throwable, Unit] =
@@ -70,6 +70,6 @@ final case class SQSOutletDeviceMessagesIn(service: ChargerOutletService, stream
 
 object SQSOutletDeviceMessagesIn {
 
-  val live: ZLayer[ChargerOutletService with ChargingEventProducer, Nothing, SQSOutletDeviceMessagesIn] =
+  val live: ZLayer[ChargingEventProducer with ChargerOutletService, Nothing, SQSOutletDeviceMessagesIn] =
     ZLayer.fromFunction(SQSOutletDeviceMessagesIn.apply _)
 }
