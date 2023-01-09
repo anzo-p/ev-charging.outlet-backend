@@ -12,17 +12,20 @@ object Dependencies {
   val zioSqs       = "0.5.0"
 
   val libraryDependencies: Seq[ModuleID] = Seq(
-    "dev.zio"              %% "zio"               % zio,
-    "dev.zio"              %% "zio-dynamodb"      % zioDynamoDB,
-    "io.d11"               %% "zhttp"             % zioHttp,
-    "dev.zio"              %% "zio-json"          % zioJson,
-    "nl.vroste"            %% "zio-kinesis"       % zioKinesis,
-    "dev.zio"              %% "zio-logging"       % zioLogging,
-    "dev.zio"              %% "zio-logging-slf4j" % zioLogging,
-    "dev.zio"              %% "zio-parser"        % zioParser,
-    "dev.zio"              %% "zio-sqs"           % zioSqs,
-    "ch.qos.logback"       % "logback-classic"    % chQosLogBack,
-    "com.thesamet.scalapb" %% "scalapb-runtime"   % scalapb.compiler.Version.scalapbVersion % "protobuf",
-    "com.anzop"            %% "ev-charger-shared" % "0.0.1"
+    "dev.zio"                 %% "zio"                % zio,
+    "dev.zio"                 %% "zio-dynamodb"       % zioDynamoDB,
+    "io.d11"                  %% "zhttp"              % zioHttp,
+    "dev.zio"                 %% "zio-json"           % zioJson,
+    "nl.vroste"               %% "zio-kinesis"        % zioKinesis,
+    "dev.zio"                 %% "zio-logging"        % zioLogging,
+    "dev.zio"                 %% "zio-logging-slf4j"  % zioLogging,
+    "dev.zio"                 %% "zio-parser"         % zioParser,
+    "dev.zio"                 %% "zio-sqs"            % zioSqs,
+    "dev.zio"                 %% "zio-test"           % zio % "test",
+    "dev.zio"                 %% "zio-test-sbt"       % zio % "test",
+    "dev.zio"                 %% "zio-mock"           % "1.0.0-RC9",
+    "ch.qos.logback"          % "logback-classic"     % chQosLogBack,
+    "com.thesamet.scalapb"    %% "scalapb-runtime"    % scalapb.compiler.Version.scalapbVersion % "protobuf",
+    "com.anzop"               %% "ev-charger-shared"  % "0.0.1"
   )
 }
