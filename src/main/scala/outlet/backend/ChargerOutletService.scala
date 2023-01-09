@@ -9,6 +9,8 @@ import java.util.UUID
 
 trait ChargerOutletService {
 
+  def getOutlet(outletId: UUID): Task[Option[ChargerOutlet]]
+
   def register(outlet: ChargerOutlet): Task[Unit]
 
   def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit]

@@ -52,10 +52,21 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     ): ZIO[Any, Nothing, ChargerOutlet] =
     ZIO.succeed(
       data.copy(
-        outletState      = state,
-        endTime          = endTime,
-        powerConsumption = data.powerConsumption + powerConsumption
+        outletState           = state,
+        endTime               = endTime,
+        powerConsumption      = data.powerConsumption + powerConsumption,
+        totalPowerConsumption = data.totalPowerConsumption + powerConsumption
       ))
+
+  override def getOutlet(outletId: UUID): Task[Option[ChargerOutlet]] =
+    (for {
+      outlet <- getByPK(outletId)
+    } yield outlet)
+      .fold(
+        _ => None,
+        Some(_)
+      )
+      .provideLayer(ZLayer.succeed(executor))
 
   override def register(outlet: ChargerOutlet): Task[Unit] =
     put(tableResource, outlet).execute.provideLayer(ZLayer.succeed(executor))
@@ -69,12 +80,12 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
   override def setAvailable(outletId: UUID): Task[Unit] = {
     val targetState = OutletDeviceState.Available
-    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState)).unit
+    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState))
   }
 
   override def setCablePlugged(outletId: UUID): Task[Unit] = {
     val targetState = OutletDeviceState.CablePlugged
-    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState)).unit
+    checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState))
   }
 
   override def setCharging(outletId: UUID, rfidTag: String): Task[Unit] = {
@@ -84,10 +95,11 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
       update <- ZIO.succeed(
                  data.copy(
-                   outletState      = targetState,
-                   rfidTag          = rfidTag,
-                   startTime        = java.time.OffsetDateTime.now(),
-                   powerConsumption = 0
+                   outletState         = targetState,
+                   rfidTag             = rfidTag,
+                   startTime           = java.time.OffsetDateTime.now(),
+                   powerConsumption    = 0,
+                   totalChargingEvents = data.totalChargingEvents + 1
                  ))
 
       _ <- putByPK(update)
@@ -106,7 +118,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
   }
 
   override def stopCharging(event: ChargingEvent): Task[ChargerOutlet] = {
-    val targetState = OutletDeviceState.CablePlugged
+    val targetState = OutletDeviceState.ChargingFinished
     (for {
       data <- getByOutletIdAndRfidTag(event.outletId, Some(event.recentSession.rfidTag))
                .filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))

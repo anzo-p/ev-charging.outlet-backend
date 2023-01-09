@@ -41,12 +41,8 @@ final case class SQSOutletDeviceMessagesIn(toBackend: ChargingEventProducer, out
 
       case OutletDeviceState.DeviceRequestsStop =>
         for {
-          finalReport <- outletService.stopCharging(
-                          ChargingEvent
-                            .deviceStop(data.outletId, data.rfidTag)
-                            .copy(outletState = OutletDeviceState.ChargingFinished)
-                        )
-          _ <- toBackend.put(finalReport.toOutletStatus)
+          finalReport <- outletService.stopCharging(ChargingEvent.deviceStop(data.outletId, data.rfidTag))
+          _           <- toBackend.put(finalReport.toOutletStatus)
         } yield ()
 
       case _ =>

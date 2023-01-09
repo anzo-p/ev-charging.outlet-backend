@@ -41,8 +41,8 @@ final case class KinesisChargingEventsIn(
 
       case OutletDeviceState.AppRequestsStop =>
         for {
-          finalReport <- outletService.stopCharging(data.copy(outletState = OutletDeviceState.ChargingFinished))
-          _           <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(data).copy(outletStatus = OutletDeviceState.ChargingFinished))
+          finalReport <- outletService.stopCharging(data)
+          _           <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(data).copy(outletStatus = finalReport.outletState))
           _           <- toBackend.put(finalReport.toOutletStatus)
         } yield ()
 

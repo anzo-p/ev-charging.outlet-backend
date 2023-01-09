@@ -26,6 +26,9 @@ object Dependencies {
     "dev.zio"                 %% "zio-mock"           % "1.0.0-RC9",
     "ch.qos.logback"          % "logback-classic"     % chQosLogBack,
     "com.thesamet.scalapb"    %% "scalapb-runtime"    % scalapb.compiler.Version.scalapbVersion % "protobuf",
-    "com.anzop"               %% "ev-charger-shared"  % "0.0.1"
+    "com.anzop"               %% "ev-charger-shared"  % "0.0.1",
+    "software.amazon.awssdk"  % "dynamodb"            % "2.17.166",
+    "com.amazonaws"           % "DynamoDBLocal"       % "1.17.0" % "it,test",
+    "com.github.sideeffffect" %% "zio-testcontainers" % "0.4.1" % Test
   )
 }
