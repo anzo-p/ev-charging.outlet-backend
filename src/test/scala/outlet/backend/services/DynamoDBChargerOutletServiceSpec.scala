@@ -3,8 +3,8 @@ package outlet.backend.services
 import outlet.backend.ChargerOutletService
 import outlet.backend.system.{LocalAWSConfig, LocalDynamoDB}
 import outlet.backend.types.chargerOutlet.Fixtures.fixtureBasicChargerOutlet
-import shared.types.chargingEvent.{ChargingEvent, EventSession}
-import shared.types.enums.{EventInitiator, OutletDeviceState}
+import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
+import shared.types.enums.OutletDeviceState
 import zio.ZIO
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb._
@@ -23,7 +23,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet.copy(outletId = UUID.randomUUID())))
             outlet <- ZIO.serviceWithZIO[ChargerOutletService](_.getOutlet(testOutlet.outletId))
-          } yield assertTrue(outlet.get == testOutlet)
+          } yield assertTrue(outlet == testOutlet)
         },
         test("checkTransitionOrElse succeeds") {
           val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID())
@@ -61,7 +61,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setAvailable(testOutlet.outletId))
             result <- ZIO.serviceWithZIO[ChargerOutletService](_.getOutlet(testOutlet.outletId))
-          } yield assertTrue(result.get.outletState == OutletDeviceState.Available)
+          } yield assertTrue(result.outletState == OutletDeviceState.Available)
         },
         test("setCablePlugged succeeds") {
           val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID(), outletState = OutletDeviceState.Available)
@@ -69,7 +69,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setCablePlugged(testOutlet.outletId))
             result <- ZIO.serviceWithZIO[ChargerOutletService](_.getOutlet(testOutlet.outletId))
-          } yield assertTrue(result.get.outletState == OutletDeviceState.CablePlugged)
+          } yield assertTrue(result.outletState == OutletDeviceState.CablePlugged)
         },
         test("setCharging succeeds") {
           val testBegins = java.time.OffsetDateTime.now()
@@ -90,77 +90,72 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setCharging(testOutlet.outletId, rfidTag = testRfid))
             result <- ZIO.serviceWithZIO[ChargerOutletService](_.getOutlet(testOutlet.outletId))
           } yield assertTrue(
-            result.get.startTime.isAfter(testBegins) && result.get.startTime.isBefore(java.time.OffsetDateTime.now()) &&
-              result.get.copy(startTime = expected.startTime) == expected
+            result.startTime.isAfter(testBegins) && result.startTime.isBefore(java.time.OffsetDateTime.now()) &&
+              result.copy(startTime = expected.startTime) == expected
           )
         }
       ),
       suite("aggregate and stop")(
         test("aggregateConsumption succeeds") {
           val testOutlet = fixtureBasicChargerOutlet.copy(
-            outletId            = UUID.randomUUID(),
-            outletState         = OutletDeviceState.Charging,
-            rfidTag             = UUID.randomUUID().toString,
-            totalChargingEvents = 1L
+            outletId              = UUID.randomUUID(),
+            outletState           = OutletDeviceState.Charging,
+            rfidTag               = UUID.randomUUID().toString,
+            powerConsumption      = 2.0,
+            totalChargingEvents   = 1L,
+            totalPowerConsumption = 111.0
           )
 
-          val testChargingEvent = new ChargingEvent(
-            initiator   = EventInitiator.AppBackend,
-            outletId    = testOutlet.outletId,
-            outletState = OutletDeviceState.Charging,
-            recentSession = EventSession(
-              sessionId        = Some(UUID.randomUUID()),
-              rfidTag          = testOutlet.rfidTag,
-              periodStart      = java.time.OffsetDateTime.now().minusMinutes(2L),
-              periodEnd        = Some(java.time.OffsetDateTime.now()),
-              powerConsumption = 1.0
-            )
+          val testUpdateFromDevice = OutletDeviceMessage(
+            outletId          = testOutlet.outletId,
+            rfidTag           = testOutlet.rfidTag,
+            periodStart       = java.time.OffsetDateTime.now().minusMinutes(2L),
+            periodEnd         = java.time.OffsetDateTime.now().minusSeconds(10L),
+            outletStateChange = OutletDeviceState.Charging,
+            powerConsumption  = 0.333
           )
 
           val expected = testOutlet.copy(
             outletState           = OutletDeviceState.Charging,
-            endTime               = testChargingEvent.recentSession.periodEnd,
-            powerConsumption      = testOutlet.powerConsumption + testChargingEvent.recentSession.powerConsumption,
-            totalPowerConsumption = testOutlet.totalPowerConsumption + testChargingEvent.recentSession.powerConsumption
+            endTime               = Some(testUpdateFromDevice.periodEnd),
+            powerConsumption      = testOutlet.powerConsumption + testUpdateFromDevice.powerConsumption,
+            totalPowerConsumption = testOutlet.totalPowerConsumption + testUpdateFromDevice.powerConsumption
           )
 
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
-            result <- ZIO.serviceWithZIO[ChargerOutletService](_.aggregateConsumption(testChargingEvent))
+            result <- ZIO.serviceWithZIO[ChargerOutletService](_.aggregateConsumption(testOutlet.getUpdatesFrom(testUpdateFromDevice)))
           } yield assertTrue(result == expected)
         },
         test("stopCharging succeeds") {
           val testOutlet = fixtureBasicChargerOutlet.copy(
-            outletId            = UUID.randomUUID(),
-            outletState         = OutletDeviceState.Charging,
-            rfidTag             = UUID.randomUUID().toString,
-            powerConsumption    = 1.0,
-            totalChargingEvents = 1L
+            outletId              = UUID.randomUUID(),
+            outletState           = OutletDeviceState.Charging,
+            rfidTag               = UUID.randomUUID().toString,
+            powerConsumption      = 2.0,
+            totalChargingEvents   = 1L,
+            totalPowerConsumption = 111.0
           )
 
-          val testChargingEvent = new ChargingEvent(
-            initiator   = EventInitiator.AppBackend,
-            outletId    = testOutlet.outletId,
-            outletState = OutletDeviceState.AppRequestsStop,
-            recentSession = EventSession(
-              sessionId        = Some(UUID.randomUUID()),
-              rfidTag          = testOutlet.rfidTag,
-              periodStart      = java.time.OffsetDateTime.now().minusMinutes(2L),
-              periodEnd        = Some(java.time.OffsetDateTime.now()),
-              powerConsumption = 1.0
-            )
+          val testUpdateFromDevice = OutletDeviceMessage(
+            outletId          = testOutlet.outletId,
+            rfidTag           = testOutlet.rfidTag,
+            periodStart       = java.time.OffsetDateTime.now().minusMinutes(2L),
+            periodEnd         = java.time.OffsetDateTime.now().minusSeconds(10L),
+            outletStateChange = OutletDeviceState.Charging,
+            powerConsumption  = 0.333
           )
 
           val expected = testOutlet.copy(
             outletState           = OutletDeviceState.ChargingFinished,
-            endTime               = testChargingEvent.recentSession.periodEnd,
-            powerConsumption      = testOutlet.powerConsumption + testChargingEvent.recentSession.powerConsumption,
-            totalPowerConsumption = testOutlet.totalPowerConsumption + testChargingEvent.recentSession.powerConsumption
+            endTime               = Some(testUpdateFromDevice.periodEnd),
+            powerConsumption      = testOutlet.powerConsumption + testUpdateFromDevice.powerConsumption,
+            totalPowerConsumption = testOutlet.totalPowerConsumption + testUpdateFromDevice.powerConsumption
           )
 
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
-            result <- ZIO.serviceWithZIO[ChargerOutletService](_.stopCharging(testChargingEvent))
+            result <- ZIO.serviceWithZIO[ChargerOutletService](_.stopCharging(testOutlet.getUpdatesFrom(testUpdateFromDevice)))
           } yield assertTrue(result == expected)
         }
       )

@@ -1,5 +1,6 @@
 package outlet.backend.types.chargerOutlet
 
+import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
 import shared.types.chargingEvent.{ChargingEvent, EventSession}
 import shared.types.enums.{EventInitiator, OutletDeviceState}
@@ -24,7 +25,7 @@ final case class ChargerOutlet(
     totalPowerConsumption: Double
   ) extends OutletStateMachine {
 
-  def toOutletStatus: ChargingEvent =
+  def toChargingEvent: ChargingEvent =
     ChargingEvent(
       initiator   = EventInitiator.OutletBackend,
       outletId    = this.outletId,
@@ -36,6 +37,29 @@ final case class ChargerOutlet(
         periodEnd        = this.endTime,
         powerConsumption = this.powerConsumption
       )
+    )
+
+  def setChargingFrom(event: OutletDeviceMessage): ChargerOutlet =
+    this.copy(
+      outletState         = event.outletStateChange,
+      rfidTag             = event.rfidTag,
+      startTime           = event.periodStart,
+      totalChargingEvents = this.totalChargingEvents + 1
+    )
+
+  def setChargingFrom(event: ChargingEvent): ChargerOutlet =
+    this.copy(
+      outletState         = event.outletState,
+      rfidTag             = event.recentSession.rfidTag,
+      startTime           = event.recentSession.periodStart,
+      totalChargingEvents = this.totalChargingEvents + 1
+    )
+
+  def getUpdatesFrom(event: OutletDeviceMessage): ChargerOutlet =
+    this.copy(
+      outletState      = event.outletStateChange,
+      endTime          = Some(event.periodEnd),
+      powerConsumption = event.powerConsumption
     )
 }
 

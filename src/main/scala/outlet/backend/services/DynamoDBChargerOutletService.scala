@@ -4,7 +4,6 @@ import outlet.backend.ChargerOutletService
 import outlet.backend.types.chargerOutlet.ChargerOutlet
 import shared.db.DynamoDBPrimitives
 import shared.types.TimeExtensions.DateTimeSchemaImplicits
-import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.OutletDeviceState
 import shared.types.outletStateMachine.OutletStateMachine._
 import zio._
@@ -58,14 +57,10 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
         totalPowerConsumption = data.totalPowerConsumption + powerConsumption
       ))
 
-  override def getOutlet(outletId: UUID): Task[Option[ChargerOutlet]] =
+  override def getOutlet(outletId: UUID): Task[ChargerOutlet] =
     (for {
       outlet <- getByPK(outletId)
     } yield outlet)
-      .fold(
-        _ => None,
-        Some(_)
-      )
       .provideLayer(ZLayer.succeed(executor))
 
   override def register(outlet: ChargerOutlet): Task[Unit] =
@@ -107,23 +102,23 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
       .provideLayer(ZLayer.succeed(executor))
   }
 
-  override def aggregateConsumption(event: ChargingEvent): Task[ChargerOutlet] = {
+  override def aggregateConsumption(outlet: ChargerOutlet): Task[ChargerOutlet] = {
     val targetState = OutletDeviceState.Charging
     (for {
-      data   <- getByPK(event.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
-      update <- aggregateConsumption(data, targetState, event.recentSession.periodEnd, event.recentSession.powerConsumption)
+      data   <- getByPK(outlet.outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
+      update <- aggregateConsumption(data, targetState, outlet.endTime, outlet.powerConsumption)
       _      <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))
   }
 
-  override def stopCharging(event: ChargingEvent): Task[ChargerOutlet] = {
+  override def stopCharging(outlet: ChargerOutlet): Task[ChargerOutlet] = {
     val targetState = OutletDeviceState.ChargingFinished
     (for {
-      data <- getByOutletIdAndRfidTag(event.outletId, Some(event.recentSession.rfidTag))
+      data <- getByOutletIdAndRfidTag(outlet.outletId, Some(outlet.rfidTag))
                .filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
 
-      update <- aggregateConsumption(data, targetState, event.recentSession.periodEnd, event.recentSession.powerConsumption)
+      update <- aggregateConsumption(data, targetState, outlet.endTime, outlet.powerConsumption)
       _      <- putByPK(update)
     } yield update)
       .provideLayer(ZLayer.succeed(executor))

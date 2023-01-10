@@ -1,7 +1,6 @@
 package outlet.backend
 
 import outlet.backend.types.chargerOutlet.ChargerOutlet
-import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.OutletDeviceState
 import zio.Task
 
@@ -9,7 +8,7 @@ import java.util.UUID
 
 trait ChargerOutletService {
 
-  def getOutlet(outletId: UUID): Task[Option[ChargerOutlet]]
+  def getOutlet(outletId: UUID): Task[ChargerOutlet]
 
   def register(outlet: ChargerOutlet): Task[Unit]
 
@@ -21,7 +20,7 @@ trait ChargerOutletService {
 
   def setCharging(outletId: UUID, rfidTag: String): Task[Unit]
 
-  def aggregateConsumption(status: ChargingEvent): Task[ChargerOutlet]
+  def aggregateConsumption(outlet: ChargerOutlet): Task[ChargerOutlet]
 
-  def stopCharging(status: ChargingEvent): Task[ChargerOutlet]
+  def stopCharging(outlet: ChargerOutlet): Task[ChargerOutlet]
 }

@@ -2,7 +2,7 @@ package outlet.backend.events
 
 import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
 import outlet.backend.{ChargerOutletService, OutletDeviceMessageProducer}
-import shared.events.{ChargingEventConsumer, ChargingEventProducer, DeadLetterProducer}
+import shared.events.{ChargingEventConsumer, DeadLetterProducer}
 import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio._
@@ -10,7 +10,6 @@ import zio._
 final case class KinesisChargingEventsIn(
     outletService: ChargerOutletService,
     toDevice: OutletDeviceMessageProducer,
-    toBackend: ChargingEventProducer,
     deadLetters: DeadLetterProducer
   ) extends ChargingEventConsumer {
 
@@ -18,44 +17,41 @@ final case class KinesisChargingEventsIn(
 
   def follow: EventInitiator = EventInitiator.AppBackend
 
-  def handleTransitionToCharging(event: ChargingEvent): ZIO[Any, Throwable, Unit] =
+  def handleTransitionToCharging(event: ChargingEvent): Task[Unit] =
     for {
       _ <- outletService.setCharging(event.outletId, event.recentSession.rfidTag)
-      _ <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStatus = OutletDeviceState.Charging))
+      _ <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStateChange = OutletDeviceState.Charging))
       // else NACK
     } yield ()
 
-  def consume(data: ChargingEvent): Task[Unit] =
-    data.outletState match {
+  def consume(event: ChargingEvent): Task[Unit] =
+    event.outletState match {
       case OutletDeviceState.AppRequestsCharging =>
         for {
           _ <- outletService.checkTransitionOrElse(
-                data.outletId,
+                event.outletId,
                 OutletDeviceState.AppRequestsCharging,
                 "Device already has active session")
-          _ <- handleTransitionToCharging(data)
+          _ <- handleTransitionToCharging(event)
         } yield ()
 
       case OutletDeviceState.Charging =>
-        handleTransitionToCharging(data)
+        handleTransitionToCharging(event)
 
       case OutletDeviceState.AppRequestsStop =>
         for {
-          finalReport <- outletService.stopCharging(data)
-          _           <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(data).copy(outletStatus = finalReport.outletState))
-          _           <- toBackend.put(finalReport.toOutletStatus)
+          _ <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStateChange = OutletDeviceState.AppRequestsStop))
         } yield ()
 
       case status =>
         for {
-          _ <- ZIO.succeed(println(s"KinesisChargingEventsIn, unknown $status")).unit
+          _ <- ZIO.succeed(println(s"KinesisChargingEventsIn, unknown $status"))
         } yield ()
     }
 }
 
 object KinesisChargingEventsIn {
 
-  val live
-      : ZLayer[ChargingEventProducer with OutletDeviceMessageProducer with ChargerOutletService with DeadLetterProducer, Nothing, KinesisChargingEventsIn] =
+  val live: ZLayer[ChargerOutletService with OutletDeviceMessageProducer with DeadLetterProducer, Nothing, KinesisChargingEventsIn] =
     ZLayer.fromFunction(KinesisChargingEventsIn.apply _)
 }

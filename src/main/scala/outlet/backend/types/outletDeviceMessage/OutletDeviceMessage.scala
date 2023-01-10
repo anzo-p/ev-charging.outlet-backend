@@ -11,7 +11,7 @@ final case class OutletDeviceMessage(
     rfidTag: String,
     periodStart: java.time.OffsetDateTime,
     periodEnd: java.time.OffsetDateTime,
-    outletStatus: OutletDeviceState,
+    outletStateChange: OutletDeviceState,
     powerConsumption: Double
   ) {
 
@@ -19,7 +19,7 @@ final case class OutletDeviceMessage(
     ChargingEvent(
       initiator   = EventInitiator.OutletBackend,
       outletId    = this.outletId,
-      outletState = this.outletStatus,
+      outletState = this.outletStateChange,
       recentSession = EventSession(
         sessionId        = None,
         rfidTag          = this.rfidTag,
@@ -43,11 +43,11 @@ object OutletDeviceMessage extends Serializer[OutletDeviceMessage] {
 
   def fromChargingEvent(event: ChargingEvent): OutletDeviceMessage =
     OutletDeviceMessage(
-      outletId         = event.outletId,
-      rfidTag          = event.recentSession.rfidTag,
-      periodStart      = event.recentSession.periodStart,
-      periodEnd        = event.recentSession.periodEnd.getOrElse(java.time.OffsetDateTime.now()),
-      outletStatus     = event.outletState,
-      powerConsumption = event.recentSession.powerConsumption
+      outletId          = event.outletId,
+      rfidTag           = event.recentSession.rfidTag,
+      periodStart       = event.recentSession.periodStart,
+      periodEnd         = event.recentSession.periodEnd.getOrElse(java.time.OffsetDateTime.now()),
+      outletStateChange = event.outletState,
+      powerConsumption  = event.recentSession.powerConsumption
     )
 }
