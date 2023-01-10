@@ -2,7 +2,7 @@ package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
 import outlet.backend.system.{LocalAWSConfig, LocalDynamoDB}
-import outlet.backend.types.chargerOutlet.ChargerOutlet
+import outlet.backend.types.chargerOutlet.Fixtures.fixtureBasicChargerOutlet
 import shared.types.chargingEvent.{ChargingEvent, EventSession}
 import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio.ZIO
@@ -13,22 +13,6 @@ import zio.test._
 import java.util.UUID
 
 object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
-
-  val fixtureBasicChargerOutlet = new ChargerOutlet(
-    outletId              = UUID.randomUUID(),
-    chargerGroupId        = UUID.randomUUID(),
-    outletCode            = "String",
-    address               = "String",
-    maxPower              = 22.0,
-    outletState           = OutletDeviceState.Available,
-    sessionId             = None,
-    rfidTag               = "",
-    startTime             = java.time.OffsetDateTime.now().minusDays(1L),
-    endTime               = None,
-    powerConsumption      = 0,
-    totalChargingEvents   = 0L,
-    totalPowerConsumption = 0.0
-  )
 
   override def spec = {
     suite("dynamodb")(

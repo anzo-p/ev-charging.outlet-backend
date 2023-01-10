@@ -2,7 +2,7 @@ package outlet.backend.http
 
 import outlet.backend.http.dto.ChargerOutletDto
 import outlet.backend.mocks.StubChargerOutletService
-import outlet.backend.types.chargerOutlet.ChargerOutletSpec.{testChargerOutlet, testChargerOutletDto}
+import outlet.backend.types.chargerOutlet.Fixtures.{fixtureBasicChargerOutlet, fixtureChargerOutletDto}
 import zhttp.http._
 import zio._
 import zio.json.{DecoderOps, EncoderOps}
@@ -24,11 +24,13 @@ object OutletRoutesSpec extends ZIOSpecDefault {
       test("POST /chargers/register") {
         for {
           uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/chargers/register"))
-          request  <- ZIO.from(Request(url = uri, method = Method.POST, body = Body.fromString(testChargerOutletDto.toJson)))
+          request  <- ZIO.from(Request(url = uri, method = Method.POST, body = Body.fromString(fixtureChargerOutletDto.toJson)))
           response <- OutletRoutes(StubChargerOutletService).routes(request)
           body     <- response.body.asString
           outlet   <- ZIO.fromEither(body.fromJson[ChargerOutletDto])
-          expected <- Body.fromString(ChargerOutletDto.fromModel(testChargerOutlet).copy(outletId = outlet.outletId).toJson).asString
+          expected <- Body.fromString {
+                       ChargerOutletDto.fromModel(fixtureBasicChargerOutlet).copy(outletId = outlet.outletId).toJson
+                     }.asString
         } yield assertTrue(response.status == Status.Created && outlet.toJson == expected)
       },
       test("POST /chargers/register responds bad request if payload violates") {

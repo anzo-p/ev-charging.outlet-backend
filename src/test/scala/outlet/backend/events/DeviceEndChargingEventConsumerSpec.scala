@@ -1,6 +1,7 @@
 package outlet.backend.events
 
 import outlet.backend.mocks.{MockChargerOutletService, MockChargingEventProducer, MockDeadLettersProducer, MockOutletDeviceMessageProducer}
+import outlet.backend.types.ChargingEvent.Fixtures.fixtureBasicChargingEvent
 import outlet.backend.types.chargerOutlet.ChargerOutlet
 import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
 import shared.types.chargingEvent.{ChargingEvent, EventSession}
@@ -12,20 +13,6 @@ import zio.test._
 import java.util.UUID
 
 object DeviceEndChargingEventConsumerSpec extends ZIOSpecDefault {
-
-  val fixtureBasicChargingEvent: ChargingEvent =
-    ChargingEvent(
-      initiator   = EventInitiator.OutletBackend,
-      outletId    = UUID.fromString("e55b9d6b-5951-4ae9-9260-c505cf762bd0"),
-      outletState = OutletDeviceState.Available,
-      recentSession = EventSession(
-        sessionId        = None,
-        rfidTag          = "",
-        periodStart      = java.time.OffsetDateTime.now().minusMinutes(5L),
-        periodEnd        = None,
-        powerConsumption = 0.0
-      )
-    )
 
   def spec =
     suite("KinesisChargingEventsIn")(
