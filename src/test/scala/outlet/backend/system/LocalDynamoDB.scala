@@ -1,4 +1,4 @@
-package system
+package outlet.backend.system
 
 import com.dimafeng.testcontainers.{DockerComposeContainer, ExposedService}
 import software.amazon.awssdk.regions.Region
@@ -35,6 +35,6 @@ object LocalDynamoDB {
       builder.endpointOverride(URI.create("http://localhost:8000")).region(Region.EU_WEST_1)
     }
 
-  val layer =
+  val layer: ZLayer[Any with AwsConfig, Throwable, DynamoDb] =
     dockerCompose >>> container >>> dynamoDB
 }

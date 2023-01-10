@@ -1,4 +1,4 @@
-package system
+package outlet.backend.system
 
 import software.amazon.awssdk.auth.credentials.{AwsBasicCredentials, StaticCredentialsProvider}
 import zio.aws.core.config.{AwsConfig, CommonAwsConfig}
@@ -7,7 +7,7 @@ import zio.{ZIO, ZLayer}
 
 object LocalAWSConfig {
 
-  lazy val credentials =
+  lazy val credentials: StaticCredentialsProvider =
     StaticCredentialsProvider.create(AwsBasicCredentials.create("access-key-to-dynamodb-local", "mellon"))
 
   lazy val credentialsConfig: ZLayer[Any, Nothing, CommonAwsConfig] =
@@ -21,6 +21,6 @@ object LocalAWSConfig {
         ))
     }
 
-  val awsConfig =
+  val awsConfig: ZLayer[Any, Throwable, AwsConfig] =
     NettyHttpClient.default ++ credentialsConfig >>> AwsConfig.configured()
 }

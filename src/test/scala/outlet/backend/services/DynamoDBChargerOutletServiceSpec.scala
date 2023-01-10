@@ -1,10 +1,10 @@
 package outlet.backend.services
 
 import outlet.backend.ChargerOutletService
+import outlet.backend.system.{LocalAWSConfig, LocalDynamoDB}
 import outlet.backend.types.chargerOutlet.ChargerOutlet
 import shared.types.chargingEvent.{ChargingEvent, EventSession}
 import shared.types.enums.{EventInitiator, OutletDeviceState}
-import system.{LocalAWSConfig, LocalDynamoDB}
 import zio.ZIO
 import zio.dynamodb.DynamoDBQuery._
 import zio.dynamodb._
@@ -14,7 +14,7 @@ import java.util.UUID
 
 object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
 
-  val fixtureAvailableOutlet = new ChargerOutlet(
+  val fixtureBasicChargerOutlet = new ChargerOutlet(
     outletId              = UUID.randomUUID(),
     chargerGroupId        = UUID.randomUUID(),
     outletCode            = "String",
@@ -34,7 +34,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
     suite("dynamodb")(
       suite("register and get")(
         test("register and getOutlet") {
-          val testOutlet = fixtureAvailableOutlet.copy(outletId = UUID.randomUUID())
+          val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID())
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet.copy(outletId = UUID.randomUUID())))
@@ -42,7 +42,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           } yield assertTrue(outlet.get == testOutlet)
         },
         test("checkTransitionOrElse succeeds") {
-          val testOutlet = fixtureAvailableOutlet.copy(outletId = UUID.randomUUID())
+          val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID())
           for {
             _ <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             result <- ZIO.serviceWithZIO[ChargerOutletService](
@@ -72,7 +72,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
         },
          */
         test("setAvailable succeeds") {
-          val testOutlet = fixtureAvailableOutlet.copy(outletId = UUID.randomUUID(), outletState = OutletDeviceState.CablePlugged)
+          val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID(), outletState = OutletDeviceState.CablePlugged)
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setAvailable(testOutlet.outletId))
@@ -80,7 +80,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           } yield assertTrue(result.get.outletState == OutletDeviceState.Available)
         },
         test("setCablePlugged succeeds") {
-          val testOutlet = fixtureAvailableOutlet.copy(outletId = UUID.randomUUID(), outletState = OutletDeviceState.Available)
+          val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID(), outletState = OutletDeviceState.Available)
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setCablePlugged(testOutlet.outletId))
@@ -91,7 +91,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           val testBegins = java.time.OffsetDateTime.now()
           val testRfid   = UUID.randomUUID().toString
 
-          val testOutlet = fixtureAvailableOutlet.copy(
+          val testOutlet = fixtureBasicChargerOutlet.copy(
             outletId    = UUID.randomUUID(),
             outletState = OutletDeviceState.CablePlugged
           )
@@ -113,7 +113,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
       ),
       suite("aggregate and stop")(
         test("aggregateConsumption succeeds") {
-          val testOutlet = fixtureAvailableOutlet.copy(
+          val testOutlet = fixtureBasicChargerOutlet.copy(
             outletId            = UUID.randomUUID(),
             outletState         = OutletDeviceState.Charging,
             rfidTag             = UUID.randomUUID().toString,
@@ -121,7 +121,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           )
 
           val testChargingEvent = new ChargingEvent(
-            initiator   = EventInitiator.Application,
+            initiator   = EventInitiator.AppBackend,
             outletId    = testOutlet.outletId,
             outletState = OutletDeviceState.Charging,
             recentSession = EventSession(
@@ -146,7 +146,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           } yield assertTrue(result == expected)
         },
         test("stopCharging succeeds") {
-          val testOutlet = fixtureAvailableOutlet.copy(
+          val testOutlet = fixtureBasicChargerOutlet.copy(
             outletId            = UUID.randomUUID(),
             outletState         = OutletDeviceState.Charging,
             rfidTag             = UUID.randomUUID().toString,
@@ -155,7 +155,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           )
 
           val testChargingEvent = new ChargingEvent(
-            initiator   = EventInitiator.Application,
+            initiator   = EventInitiator.AppBackend,
             outletId    = testOutlet.outletId,
             outletState = OutletDeviceState.AppRequestsStop,
             recentSession = EventSession(
