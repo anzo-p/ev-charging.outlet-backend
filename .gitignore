@@ -15,8 +15,6 @@
 target/
 project/project
 
-/infra/.terraform*
-/infra/terraform*
-/infra/.terraform/
+/docker/dynamodb/shared-local-instance.db
 
 .env

@@ -6,17 +6,6 @@ import zio.sqs.serialization.Serializer
 
 import java.util.UUID
 
-/*
-{
-  "outletId": "0b36a6d2-2694-4ff3-8324-9a391d2a323b",
-  "rfidTag": "f23fee8b-79d9-4723-8c03-c2c85a8a06c8",
-  "periodStart": "2023-01-05T13:14:19.074Z",
-  "periodEnd": "2023-01-05T13:14:19.074Z",
-  "outletStatus": "ChargingRequested",
-  "powerConsumption": 0.0
-}
- */
-
 final case class OutletDeviceMessage(
     outletId: UUID,
     rfidTag: String,
@@ -28,11 +17,11 @@ final case class OutletDeviceMessage(
 
   def toChargingEvent: ChargingEvent =
     ChargingEvent(
-      initiator   = EventInitiator.OutletDevice,
+      initiator   = EventInitiator.OutletBackend,
       outletId    = this.outletId,
       outletState = this.outletStatus,
       recentSession = EventSession(
-        sessionId        = None, // the outlets know nothing about a session, but the dbs will
+        sessionId        = None,
         rfidTag          = this.rfidTag,
         periodStart      = this.periodStart,
         periodEnd        = Some(this.periodEnd),

@@ -26,7 +26,7 @@ final case class ChargerOutlet(
 
   def toOutletStatus: ChargingEvent =
     ChargingEvent(
-      initiator   = EventInitiator.OutletDevice,
+      initiator   = EventInitiator.OutletBackend,
       outletId    = this.outletId,
       outletState = this.outletState,
       recentSession = EventSession(

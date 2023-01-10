@@ -1,22 +1,22 @@
 package outlet.backend.events
 
-import outlet.backend.{ChargerOutletService, OutletDeviceMessageProducer}
 import outlet.backend.types.outletDeviceMessage.OutletDeviceMessage
+import outlet.backend.{ChargerOutletService, OutletDeviceMessageProducer}
 import shared.events.{ChargingEventConsumer, ChargingEventProducer, DeadLetterProducer}
 import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio._
 
 final case class KinesisChargingEventsIn(
-    toBackend: ChargingEventProducer,
-    toDevice: OutletDeviceMessageProducer,
     outletService: ChargerOutletService,
+    toDevice: OutletDeviceMessageProducer,
+    toBackend: ChargingEventProducer,
     deadLetters: DeadLetterProducer
   ) extends ChargingEventConsumer {
 
   val applicationName: String = "outlet-backend"
 
-  def follow: EventInitiator = EventInitiator.Application
+  def follow: EventInitiator = EventInitiator.AppBackend
 
   def handleTransitionToCharging(event: ChargingEvent): ZIO[Any, Throwable, Unit] =
     for {
