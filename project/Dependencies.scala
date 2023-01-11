@@ -8,6 +8,7 @@ object Dependencies {
   val zioJson      = "0.3.0"
   val zioKinesis   = "0.30.1"
   val zioLogging   = "2.1.6"
+  val zioMock      = "1.0.0-RC9"
   val zioParser    = "0.1.7"
   val zioSqs       = "0.5.0"
 
@@ -23,12 +24,12 @@ object Dependencies {
     "dev.zio"                 %% "zio-sqs"            % zioSqs,
     "dev.zio"                 %% "zio-test"           % zio % "test",
     "dev.zio"                 %% "zio-test-sbt"       % zio % "test",
-    "dev.zio"                 %% "zio-mock"           % "1.0.0-RC9",
+    "dev.zio"                 %% "zio-mock"           % zioMock,
     "ch.qos.logback"          % "logback-classic"     % chQosLogBack,
     "com.thesamet.scalapb"    %% "scalapb-runtime"    % scalapb.compiler.Version.scalapbVersion % "protobuf",
     "com.anzop"               %% "ev-charger-shared"  % "0.0.1",
-    "software.amazon.awssdk"  % "dynamodb"            % "2.17.166",
-    "com.amazonaws"           % "DynamoDBLocal"       % "1.17.0" % "it,test",
+    "software.amazon.awssdk"  % "dynamodb"            % "2.19.8",
+    "com.amazonaws"           % "DynamoDBLocal"       % "1.18.0" % "test", //"it,test",
     "com.github.sideeffffect" %% "zio-testcontainers" % "0.4.1" % Test
   )
 }
