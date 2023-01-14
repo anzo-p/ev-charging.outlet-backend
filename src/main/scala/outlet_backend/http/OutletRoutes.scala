@@ -2,7 +2,7 @@ package outlet_backend.http
 
 import outlet_backend.ChargerOutletService
 import outlet_backend.http.dto._
-import shared.http.BaseRoutes
+import shared.http.{BaseRoutes, HealthRoutes}
 import zhttp.http._
 import zhttp.service.Server
 import zio._
@@ -15,7 +15,7 @@ final case class OutletRoutes(service: ChargerOutletService) extends BaseRoutes 
       case Method.GET -> !! / "chargers" =>
         ZIO.succeed(Response.text("List of chargers in the area..."))
 
-      case req @ Method.POST -> !! / "chargers" / "register" =>
+      case req @ Method.POST -> !! / "api" / "chargers" =>
         (for {
           body <- req.body.asString.mapError(serverError)
           dto  <- body.fromJson[ChargerOutletDto].orFail(invalidPayload)
@@ -34,7 +34,7 @@ final case class OutletRoutes(service: ChargerOutletService) extends BaseRoutes 
     }
 
   val start: ZIO[Any, Throwable, Nothing] =
-    Server.start(8081, routes)
+    Server.start(8081, routes ++ HealthRoutes.routes)
 }
 
 object OutletRoutes {

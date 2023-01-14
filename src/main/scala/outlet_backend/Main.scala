@@ -29,7 +29,8 @@ object Main extends ZIOAppDefault {
     program
       .provide(
         // aws config
-        AwsConfig.default,
+        AwsAccessConfig.live,
+        AwsConfig.configured(),
         NettyHttpClient.default,
         // dynamodb
         DynamoDb.live,
