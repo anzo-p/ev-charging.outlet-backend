@@ -1,7 +1,7 @@
 package outlet_backend.events
 
-import outlet_backend.{ChargerOutletService, OutletDeviceMessageProducer}
 import outlet_backend.types.outletDeviceMessage.OutletDeviceMessage
+import outlet_backend.{ChargerOutletService, OutletDeviceMessageProducer}
 import shared.events.{ChargingEventConsumer, DeadLetterProducer}
 import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.{EventInitiator, OutletDeviceState}
@@ -19,8 +19,9 @@ final case class KinesisChargingEventsIn(
 
   def handleTransitionToCharging(event: ChargingEvent): Task[Unit] =
     for {
-      _ <- outletService.setCharging(event.outletId, event.recentSession.rfidTag)
-      _ <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStateChange = OutletDeviceState.Charging))
+      sessionId <- ZIO.fromOption(event.recentSession.sessionId).orElseFail(new Error("[KinesisChargingEventsIn] no session id"))
+      _         <- outletService.setCharging(event.outletId, event.recentSession.rfidTag, sessionId)
+      _         <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStateChange = OutletDeviceState.Charging))
       // else NACK
     } yield ()
 

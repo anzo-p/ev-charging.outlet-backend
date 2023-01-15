@@ -18,7 +18,7 @@ trait ChargerOutletService {
 
   def setCablePlugged(outletId: UUID): Task[Unit]
 
-  def setCharging(outletId: UUID, rfidTag: String): Task[Unit]
+  def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit]
 
   def aggregateConsumption(outlet: ChargerOutlet): Task[ChargerOutlet]
 

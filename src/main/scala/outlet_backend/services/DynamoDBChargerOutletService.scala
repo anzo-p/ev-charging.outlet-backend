@@ -83,7 +83,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState))
   }
 
-  override def setCharging(outletId: UUID, rfidTag: String): Task[Unit] = {
+  override def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit] = {
     val targetState = OutletDeviceState.Charging
     (for {
       data <- getByPK(outletId).filterOrFail(_.mayTransitionTo(targetState))(new Error(cannotTransitionTo(targetState)))
@@ -92,6 +92,7 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
                  data.copy(
                    outletState         = targetState,
                    rfidTag             = rfidTag,
+                   sessionId           = Some(sessionId),
                    startTime           = java.time.OffsetDateTime.now(),
                    powerConsumption    = 0,
                    totalChargingEvents = data.totalChargingEvents + 1

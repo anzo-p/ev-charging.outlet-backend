@@ -1,7 +1,7 @@
 package outlet_backend.events
 
-import outlet_backend.{ChargerOutletService, OutletDeviceMessageConsumer}
 import outlet_backend.types.outletDeviceMessage.OutletDeviceMessage
+import outlet_backend.{ChargerOutletService, OutletDeviceMessageConsumer}
 import shared.events.ChargingEventProducer
 import shared.types.enums.OutletDeviceState
 import zio.aws.sqs.Sqs
@@ -35,7 +35,7 @@ final case class SQSOutletDeviceMessagesIn(outletService: ChargerOutletService, 
       case OutletDeviceState.Charging =>
         for {
           outlet <- outletService.getOutlet(event.outletId)
-          report <- outletService.aggregateConsumption(outlet.setChargingFrom(event))
+          report <- outletService.aggregateConsumption(outlet.getUpdatesFrom(event))
           _      <- toBackend.put(report.toChargingEvent)
         } yield ()
 
