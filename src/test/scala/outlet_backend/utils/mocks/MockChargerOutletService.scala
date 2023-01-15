@@ -12,10 +12,11 @@ object MockChargerOutletService extends Mock[ChargerOutletService] {
 
   object GetOutlet extends Effect[UUID, Throwable, ChargerOutlet]
   object Register extends Effect[ChargerOutlet, Throwable, Unit]
-  object CheckTransitionOrElse extends Effect[(UUID, OutletDeviceState, String), Throwable, Unit]
+  object CheckTransitionOrElse extends Effect[(UUID, OutletDeviceState), Throwable, Boolean]
   object SetAvailable extends Effect[UUID, Throwable, Unit]
   object SetCablePlugged extends Effect[UUID, Throwable, Unit]
-  object SetCharging extends Effect[(UUID, String), Throwable, Unit]
+  object ResetToCablePlugged extends Effect[UUID, Throwable, Unit]
+  object SetCharging extends Effect[(UUID, String, UUID), Throwable, Unit]
   object AggregateConsumption extends Effect[ChargerOutlet, Throwable, ChargerOutlet]
   object StopCharging extends Effect[ChargerOutlet, Throwable, ChargerOutlet]
 
@@ -30,8 +31,8 @@ object MockChargerOutletService extends Mock[ChargerOutletService] {
         override def register(outlet: ChargerOutlet): Task[Unit] =
           proxy(Register, outlet)
 
-        override def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit] =
-          proxy(CheckTransitionOrElse, outletId, nextState, message)
+        override def checkTransition(outletId: UUID, nextState: OutletDeviceState): Task[Boolean] =
+          proxy(CheckTransitionOrElse, outletId, nextState)
 
         override def setAvailable(outletId: UUID): Task[Unit] =
           proxy(SetAvailable, outletId)
@@ -39,8 +40,11 @@ object MockChargerOutletService extends Mock[ChargerOutletService] {
         override def setCablePlugged(outletId: UUID): Task[Unit] =
           proxy(SetCablePlugged, outletId)
 
-        override def setCharging(outletId: UUID, rfidTag: String): Task[Unit] =
-          proxy(SetCharging, outletId, rfidTag)
+        override def resetToCablePlugged(outletId: UUID): Task[Unit] =
+          proxy(ResetToCablePlugged, outletId)
+
+        override def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit] =
+          proxy(SetCharging, outletId, rfidTag, sessionId)
 
         override def aggregateConsumption(event: ChargerOutlet): Task[ChargerOutlet] =
           proxy(AggregateConsumption, event)

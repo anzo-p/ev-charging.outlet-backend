@@ -74,13 +74,8 @@ object SQSOutletDeviceMessagesInSpec extends ZIOSpecDefault {
         val sqsConsumer = ZIO.serviceWithZIO[SQSOutletDeviceMessagesIn](_.consume(testDeviceMessage))
 
         val mockOutletService = MockChargerOutletService.CheckTransitionOrElse(
-          Assertion.equalTo(
-            (
-              testDeviceMessage.outletId,
-              testDeviceMessage.outletStateChange,
-              "Device already has active session"
-            )),
-          Expectation.unit
+          Assertion.equalTo((testDeviceMessage.outletId, testDeviceMessage.outletStateChange)),
+          Expectation.value(true)
         )
 
         val mockToBackend = MockChargingEventProducer.Put(
@@ -117,7 +112,7 @@ object SQSOutletDeviceMessagesInSpec extends ZIOSpecDefault {
           startTime             = fixtureBasicDeviceMessage.periodStart,
           endTime               = Some(testDeviceMessage.periodEnd),
           powerConsumption      = 2,
-          totalChargingEvents   = 12345L,
+          totalChargingSessions = 12345L,
           totalPowerConsumption = 1000.0
         )
 
@@ -142,7 +137,7 @@ object SQSOutletDeviceMessagesInSpec extends ZIOSpecDefault {
             Expectation.value(testChargerOutlet)
           ) ++
             MockChargerOutletService.AggregateConsumption(
-              Assertion.equalTo(testChargerOutlet.setChargingFrom(testDeviceMessage)),
+              Assertion.equalTo(testChargerOutlet.getUpdatesFrom(testDeviceMessage)),
               Expectation.value(testChargerOutlet)
             )
         }
@@ -181,7 +176,7 @@ object SQSOutletDeviceMessagesInSpec extends ZIOSpecDefault {
           startTime             = fixtureBasicDeviceMessage.periodStart,
           endTime               = Some(testDeviceMessage.periodEnd.minusMinutes(2L)),
           powerConsumption      = 2,
-          totalChargingEvents   = 12345L,
+          totalChargingSessions = 12345L,
           totalPowerConsumption = 1000.0
         )
 

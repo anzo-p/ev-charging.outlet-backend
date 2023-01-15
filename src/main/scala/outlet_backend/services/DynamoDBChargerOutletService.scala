@@ -66,11 +66,10 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
   override def register(outlet: ChargerOutlet): Task[Unit] =
     put(tableResource, outlet).execute.provideLayer(ZLayer.succeed(executor))
 
-  override def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit] =
+  override def checkTransition(outletId: UUID, nextState: OutletDeviceState): Task[Boolean] =
     (for {
       outlet <- getByOutletIdAndRfidTag(outletId, None)
-      _      <- ZIO.from(outlet).filterOrFail(_.mayTransitionTo(nextState))(new Error(message))
-    } yield ())
+    } yield outlet.mayTransitionTo(nextState))
       .provideLayer(ZLayer.succeed(executor))
 
   override def setAvailable(outletId: UUID): Task[Unit] = {
@@ -83,6 +82,22 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
     checkAndSetState(outletId, None, targetState, cannotTransitionTo(targetState))
   }
 
+  override def resetToCablePlugged(outletId: UUID): Task[Unit] =
+    (for {
+      data <- getByPK(outletId)
+
+      update <- ZIO.succeed(
+                 data.copy(
+                   outletState = OutletDeviceState.CablePlugged,
+                   rfidTag     = "",
+                   sessionId   = None,
+                   startTime   = java.time.OffsetDateTime.now()
+                 ))
+
+      _ <- putByPK(update)
+    } yield ())
+      .provideLayer(ZLayer.succeed(executor))
+
   override def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit] = {
     val targetState = OutletDeviceState.Charging
     (for {
@@ -90,12 +105,12 @@ final case class DynamoDBChargerOutletService(executor: DynamoDBExecutor)
 
       update <- ZIO.succeed(
                  data.copy(
-                   outletState         = targetState,
-                   rfidTag             = rfidTag,
-                   sessionId           = Some(sessionId),
-                   startTime           = java.time.OffsetDateTime.now(),
-                   powerConsumption    = 0,
-                   totalChargingEvents = data.totalChargingEvents + 1
+                   outletState           = targetState,
+                   rfidTag               = rfidTag,
+                   sessionId             = Some(sessionId),
+                   startTime             = java.time.OffsetDateTime.now(),
+                   powerConsumption      = 0,
+                   totalChargingSessions = data.totalChargingSessions + 1
                  ))
 
       _ <- putByPK(update)

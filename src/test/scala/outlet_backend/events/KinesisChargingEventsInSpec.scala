@@ -2,7 +2,12 @@ package outlet_backend.events
 
 import outlet_backend.types.chargingEvent.Fixtures.fixtureBasicChargingEvent
 import outlet_backend.types.outletDeviceMessage.OutletDeviceMessage
-import outlet_backend.utils.mocks.{MockChargerOutletService, MockDeadLettersProducer, MockOutletDeviceMessageProducer}
+import outlet_backend.utils.mocks.{
+  MockChargerOutletService,
+  MockChargingEventProducer,
+  MockDeadLettersProducer,
+  MockOutletDeviceMessageProducer
+}
 import shared.types.chargingEvent.EventSession
 import shared.types.enums.OutletDeviceState
 import zio._
@@ -45,12 +50,11 @@ object KinesisChargingEventsInSpec extends ZIOSpecDefault {
 
         val mockOutletService =
           MockChargerOutletService.CheckTransitionOrElse(
-            Assertion.equalTo(
-              (fixtureBasicChargingEvent.outletId, OutletDeviceState.AppRequestsCharging, "Device already has active session")),
-            Expectation.unit
+            Assertion.equalTo((fixtureBasicChargingEvent.outletId, OutletDeviceState.AppRequestsCharging)),
+            Expectation.value(true)
           ) ++
             MockChargerOutletService.SetCharging(
-              Assertion.equalTo((fixtureBasicChargingEvent.outletId, testSession.rfidTag)),
+              Assertion.equalTo((fixtureBasicChargingEvent.outletId, testSession.rfidTag, testSession.sessionId.get)),
               Expectation.unit
             )
 
@@ -66,6 +70,7 @@ object KinesisChargingEventsInSpec extends ZIOSpecDefault {
                   KinesisChargingEventsIn.live,
                   mockOutletService,
                   mockToDevice,
+                  MockChargingEventProducer.empty,
                   MockDeadLettersProducer.empty
                 )
         } yield assertTrue(true)
@@ -99,7 +104,7 @@ object KinesisChargingEventsInSpec extends ZIOSpecDefault {
         )
 
         val mockOutletService = MockChargerOutletService.SetCharging(
-          Assertion.equalTo((fixtureBasicChargingEvent.outletId, testSession.rfidTag)),
+          Assertion.equalTo((fixtureBasicChargingEvent.outletId, testSession.rfidTag, testSession.sessionId.get)),
           Expectation.unit
         )
 
@@ -115,6 +120,7 @@ object KinesisChargingEventsInSpec extends ZIOSpecDefault {
                   KinesisChargingEventsIn.live,
                   mockOutletService,
                   mockToDevice,
+                  MockChargingEventProducer.empty,
                   MockDeadLettersProducer.empty
                 )
         } yield assertTrue(true)
@@ -156,6 +162,7 @@ object KinesisChargingEventsInSpec extends ZIOSpecDefault {
                   KinesisChargingEventsIn.live,
                   MockChargerOutletService.empty,
                   mockToDevice,
+                  MockChargingEventProducer.empty,
                   MockDeadLettersProducer.empty
                 )
         } yield assertTrue(true)

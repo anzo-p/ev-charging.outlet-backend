@@ -14,16 +14,16 @@ object OutletRoutesSpec extends ZIOSpecDefault {
     suite("OutletRoutes")(
       test("GET /chargers") {
         for {
-          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/chargers"))
+          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/api/chargers"))
           request  <- ZIO.from(Request(url = uri))
           response <- OutletRoutes(StubChargerOutletService).routes(request)
           body     <- response.body.asString
           expected <- Body.fromString("List of chargers in the area...").asString
         } yield assertTrue(response.status == Status.Ok && body == expected)
       },
-      test("POST /chargers/register") {
+      test("POST /api/chargers/register") {
         for {
-          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/chargers/register"))
+          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/api/chargers"))
           request  <- ZIO.from(Request(url = uri, method = Method.POST, body = Body.fromString(fixtureChargerOutletDto.toJson)))
           response <- OutletRoutes(StubChargerOutletService).routes(request)
           body     <- response.body.asString
@@ -33,9 +33,9 @@ object OutletRoutesSpec extends ZIOSpecDefault {
                      }.asString
         } yield assertTrue(response.status == Status.Created && outlet.toJson == expected)
       },
-      test("POST /chargers/register responds bad request if payload violates") {
+      test("POST /api/chargers/register responds bad request if payload violates") {
         for {
-          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/chargers/register"))
+          uri      <- ZIO.fromEither(URL.fromString("http://127.0.0.1:8081/api/chargers"))
           request  <- ZIO.from(Request(url = uri, method = Method.POST, body = Body.fromString("this payload will fail")))
           response <- OutletRoutes(StubChargerOutletService).routes(request)
         } yield assertTrue(response.status == Status.BadRequest)

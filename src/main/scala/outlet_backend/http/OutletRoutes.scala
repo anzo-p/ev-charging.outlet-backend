@@ -12,7 +12,7 @@ final case class OutletRoutes(service: ChargerOutletService) extends BaseRoutes 
 
   val routes: Http[Any, Throwable, Request, Response] =
     Http.collectZIO[Request] {
-      case Method.GET -> !! / "chargers" =>
+      case Method.GET -> !! / "api" / "chargers" =>
         ZIO.succeed(Response.text("List of chargers in the area..."))
 
       case req @ Method.POST -> !! / "api" / "chargers" =>

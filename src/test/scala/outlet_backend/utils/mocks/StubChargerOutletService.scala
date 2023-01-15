@@ -16,8 +16,8 @@ object StubChargerOutletService extends ChargerOutletService {
   override def register(outlet: ChargerOutlet): Task[Unit] =
     ZIO.succeed(())
 
-  override def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit] =
-    ZIO.succeed(())
+  override def checkTransition(outletId: UUID, nextState: OutletDeviceState): Task[Boolean] =
+    ZIO.succeed(true)
 
   override def setAvailable(outletId: UUID): Task[Unit] =
     ZIO.succeed(())
@@ -25,7 +25,10 @@ object StubChargerOutletService extends ChargerOutletService {
   override def setCablePlugged(outletId: UUID): Task[Unit] =
     ZIO.succeed(())
 
-  override def setCharging(outletId: UUID, rfidTag: String): Task[Unit] =
+  override def resetToCablePlugged(outletId: UUID): Task[Unit] =
+    ZIO.succeed(())
+
+  override def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit] =
     ZIO.succeed(())
 
   override def aggregateConsumption(outlet: ChargerOutlet): Task[ChargerOutlet] =

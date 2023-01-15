@@ -21,7 +21,7 @@ final case class ChargerOutlet(
     startTime: java.time.OffsetDateTime,
     endTime: Option[java.time.OffsetDateTime],
     powerConsumption: Double,
-    totalChargingEvents: Long,
+    totalChargingSessions: Long,
     totalPowerConsumption: Double
   ) extends OutletStateMachine {
 
@@ -41,18 +41,18 @@ final case class ChargerOutlet(
 
   def setChargingFrom(event: OutletDeviceMessage): ChargerOutlet =
     this.copy(
-      outletState         = event.outletStateChange,
-      rfidTag             = event.rfidTag,
-      startTime           = event.periodStart,
-      totalChargingEvents = this.totalChargingEvents + 1
+      outletState           = event.outletStateChange,
+      rfidTag               = event.rfidTag,
+      startTime             = event.periodStart,
+      totalChargingSessions = this.totalChargingSessions + 1
     )
 
   def setChargingFrom(event: ChargingEvent): ChargerOutlet =
     this.copy(
-      outletState         = event.outletState,
-      rfidTag             = event.recentSession.rfidTag,
-      startTime           = event.recentSession.periodStart,
-      totalChargingEvents = this.totalChargingEvents + 1
+      outletState           = event.outletState,
+      rfidTag               = event.recentSession.rfidTag,
+      startTime             = event.recentSession.periodStart,
+      totalChargingSessions = this.totalChargingSessions + 1
     )
 
   def getUpdatesFrom(event: OutletDeviceMessage): ChargerOutlet =
@@ -85,7 +85,7 @@ object ChargerOutlet extends DateTimeSchemaImplicits {
       startTime             = java.time.OffsetDateTime.now(),
       endTime               = None,
       powerConsumption      = 0.0,
-      totalChargingEvents   = 0L,
+      totalChargingSessions = 0L,
       totalPowerConsumption = 0.0
     )
 }

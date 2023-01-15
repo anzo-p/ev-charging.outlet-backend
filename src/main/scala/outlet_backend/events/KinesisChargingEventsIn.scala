@@ -2,7 +2,7 @@ package outlet_backend.events
 
 import outlet_backend.types.outletDeviceMessage.OutletDeviceMessage
 import outlet_backend.{ChargerOutletService, OutletDeviceMessageProducer}
-import shared.events.{ChargingEventConsumer, DeadLetterProducer}
+import shared.events.{ChargingEventConsumer, ChargingEventProducer, DeadLetterProducer}
 import shared.types.chargingEvent.ChargingEvent
 import shared.types.enums.{EventInitiator, OutletDeviceState}
 import zio._
@@ -10,6 +10,7 @@ import zio._
 final case class KinesisChargingEventsIn(
     outletService: ChargerOutletService,
     toDevice: OutletDeviceMessageProducer,
+    toBackend: ChargingEventProducer,
     deadLetters: DeadLetterProducer
   ) extends ChargingEventConsumer {
 
@@ -22,18 +23,26 @@ final case class KinesisChargingEventsIn(
       sessionId <- ZIO.fromOption(event.recentSession.sessionId).orElseFail(new Error("[KinesisChargingEventsIn] no session id"))
       _         <- outletService.setCharging(event.outletId, event.recentSession.rfidTag, sessionId)
       _         <- toDevice.produce(OutletDeviceMessage.fromChargingEvent(event).copy(outletStateChange = OutletDeviceState.Charging))
-      // else NACK
     } yield ()
 
   def consume(event: ChargingEvent): Task[Unit] =
     event.outletState match {
       case OutletDeviceState.AppRequestsCharging =>
         for {
-          _ <- outletService.checkTransitionOrElse(
-                event.outletId,
-                OutletDeviceState.AppRequestsCharging,
-                "Device already has active session")
-          _ <- handleTransitionToCharging(event)
+          _ <- outletService.checkTransition(event.outletId, OutletDeviceState.AppRequestsCharging).flatMap {
+                case true => handleTransitionToCharging(event)
+                case false =>
+                  toBackend.put(
+                    event.copy(
+                      initiator   = EventInitiator.OutletBackend,
+                      outletState = OutletDeviceState.DeviceDeniesCharging
+                    ))
+              }
+        } yield ()
+
+      case OutletDeviceState.AppDeniesCharging =>
+        for {
+          _ <- outletService.resetToCablePlugged(event.outletId)
         } yield ()
 
       case OutletDeviceState.Charging =>
@@ -53,6 +62,7 @@ final case class KinesisChargingEventsIn(
 
 object KinesisChargingEventsIn {
 
-  val live: ZLayer[ChargerOutletService with OutletDeviceMessageProducer with DeadLetterProducer, Nothing, KinesisChargingEventsIn] =
+  val live
+      : ZLayer[ChargerOutletService with OutletDeviceMessageProducer with ChargingEventProducer with DeadLetterProducer, Nothing, KinesisChargingEventsIn] =
     ZLayer.fromFunction(KinesisChargingEventsIn.apply _)
 }

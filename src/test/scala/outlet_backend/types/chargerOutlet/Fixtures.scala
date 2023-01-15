@@ -20,7 +20,7 @@ object Fixtures {
       startTime             = java.time.OffsetDateTime.now().minusDays(1L),
       endTime               = None,
       powerConsumption      = 0,
-      totalChargingEvents   = 0L,
+      totalChargingSessions = 0L,
       totalPowerConsumption = 0.0
     )
 

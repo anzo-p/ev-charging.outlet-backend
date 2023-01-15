@@ -25,11 +25,10 @@ final case class SQSOutletDeviceMessagesIn(outletService: ChargerOutletService, 
 
       case OutletDeviceState.DeviceRequestsCharging =>
         for {
-          _ <- outletService.checkTransitionOrElse(
-                event.outletId,
-                OutletDeviceState.DeviceRequestsCharging,
-                "Device already has active session")
-          _ <- toBackend.put(event.toChargingEvent)
+          _ <- outletService.checkTransition(event.outletId, OutletDeviceState.DeviceRequestsCharging).flatMap {
+                case true  => toBackend.put(event.toChargingEvent)
+                case false => ZIO.succeed(()) // this would be OutletDeniesCharging..
+              }
         } yield ()
 
       case OutletDeviceState.Charging =>

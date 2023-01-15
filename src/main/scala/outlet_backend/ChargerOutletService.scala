@@ -12,11 +12,13 @@ trait ChargerOutletService {
 
   def register(outlet: ChargerOutlet): Task[Unit]
 
-  def checkTransitionOrElse(outletId: UUID, nextState: OutletDeviceState, message: String): Task[Unit]
+  def checkTransition(outletId: UUID, nextState: OutletDeviceState): Task[Boolean]
 
   def setAvailable(outletId: UUID): Task[Unit]
 
   def setCablePlugged(outletId: UUID): Task[Unit]
+
+  def resetToCablePlugged(outletId: UUID): Task[Unit]
 
   def setCharging(outletId: UUID, rfidTag: String, sessionId: UUID): Task[Unit]
 

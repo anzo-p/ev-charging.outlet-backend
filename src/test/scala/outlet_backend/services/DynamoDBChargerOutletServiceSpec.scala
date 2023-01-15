@@ -28,14 +28,9 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
         test("checkTransitionOrElse succeeds") {
           val testOutlet = fixtureBasicChargerOutlet.copy(outletId = UUID.randomUUID())
           for {
-            _ <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
-            result <- ZIO.serviceWithZIO[ChargerOutletService](
-                       _.checkTransitionOrElse(
-                         testOutlet.outletId,
-                         OutletDeviceState.CablePlugged,
-                         ""
-                       ))
-          } yield assertTrue(result == ())
+            _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
+            result <- ZIO.serviceWithZIO[ChargerOutletService](_.checkTransition(testOutlet.outletId, OutletDeviceState.CablePlugged))
+          } yield assertTrue(result)
         }
       ),
       suite("set states")(
@@ -72,22 +67,24 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
           } yield assertTrue(result.outletState == OutletDeviceState.CablePlugged)
         },
         test("setCharging succeeds") {
-          val testBegins = java.time.OffsetDateTime.now()
-          val testRfid   = UUID.randomUUID().toString
+          val testBegins    = java.time.OffsetDateTime.now()
+          val testRfid      = UUID.randomUUID().toString
+          val testSessionId = UUID.randomUUID()
 
           val testOutlet = fixtureBasicChargerOutlet.copy(
             outletId    = UUID.randomUUID(),
+            sessionId   = Some(testSessionId),
             outletState = OutletDeviceState.CablePlugged
           )
 
           val expected = testOutlet.copy(
-            outletState         = OutletDeviceState.Charging,
-            rfidTag             = testRfid,
-            totalChargingEvents = testOutlet.totalChargingEvents + 1L
+            outletState           = OutletDeviceState.Charging,
+            rfidTag               = testRfid,
+            totalChargingSessions = testOutlet.totalChargingSessions + 1L
           )
           for {
             _      <- ZIO.serviceWithZIO[ChargerOutletService](_.register(testOutlet))
-            _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setCharging(testOutlet.outletId, rfidTag = testRfid))
+            _      <- ZIO.serviceWithZIO[ChargerOutletService](_.setCharging(testOutlet.outletId, testRfid, testOutlet.sessionId.get))
             result <- ZIO.serviceWithZIO[ChargerOutletService](_.getOutlet(testOutlet.outletId))
           } yield assertTrue(
             result.startTime.isAfter(testBegins) && result.startTime.isBefore(java.time.OffsetDateTime.now()) &&
@@ -102,7 +99,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             outletState           = OutletDeviceState.Charging,
             rfidTag               = UUID.randomUUID().toString,
             powerConsumption      = 2.0,
-            totalChargingEvents   = 1L,
+            totalChargingSessions = 1L,
             totalPowerConsumption = 111.0
           )
 
@@ -133,7 +130,7 @@ object DynamoDBChargerOutletServiceSpec extends ZIOSpecDefault {
             outletState           = OutletDeviceState.Charging,
             rfidTag               = UUID.randomUUID().toString,
             powerConsumption      = 2.0,
-            totalChargingEvents   = 1L,
+            totalChargingSessions = 1L,
             totalPowerConsumption = 111.0
           )
 
